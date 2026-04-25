@@ -14,6 +14,15 @@ import {
 import { fetchMepQuote } from "@/lib/exchange-rate";
 import { QuoteForm } from "./quote-form";
 import { WithdrawButton } from "./withdraw-button";
+import {
+  PassengersView,
+  type AttachmentView,
+  type PassengerView,
+} from "./passengers-view";
+import { ReservationPanel } from "./reservation-panel";
+import type { OperatorAttachment } from "./operator-attachments-block";
+import { IssuancePanel } from "./issuance-panel";
+import type { AttachmentKind } from "@/lib/passengers";
 
 export const metadata = { title: "Solicitud — Travel Desk" };
 
@@ -42,27 +51,145 @@ export default async function OperatorRequestDetailPage({
   if (!dispatch) notFound();
   const request = dispatch.request;
 
-  const [{ data: quotes }, mep] = await Promise.all([
+  const [
+    { data: quotes },
+    mep,
+    { data: passengersRaw },
+    { data: attachmentsRaw },
+  ] = await Promise.all([
     supabase
       .from("quotes")
-      .select("*, items:quote_items(id, sort_order, description, amount)")
+      .select(
+        "*, items:quote_items(id, sort_order, description, amount, accepted_at)",
+      )
       .eq("quote_request_id", id)
       .eq("operator_id", tenant.operatorId)
       .order("submitted_at", { ascending: false }),
     fetchMepQuote(),
+    supabase
+      .from("passengers")
+      .select(
+        "id, full_name, passenger_type, document_type, document_number, birth_date",
+      )
+      .eq("quote_request_id", id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("attachments")
+      .select(
+        "id, file_name, storage_path, size_bytes, passenger_id, kind, created_at",
+      )
+      .eq("quote_request_id", id)
+      .in("kind", [
+        "passenger_doc",
+        "reservation",
+        "voucher",
+        "invoice",
+        "file_doc",
+      ])
+      .order("created_at", { ascending: false }),
   ]);
 
-  const activeQuote = (quotes ?? []).find((q) => q.status === "submitted") ?? null;
-  const historicQuotes = (quotes ?? []).filter((q) => q.id !== activeQuote?.id);
+  const { data: reservation } = await supabase
+    .from("reservations")
+    .select("id, reservation_code, notes, created_at, operator_id")
+    .eq("quote_request_id", id)
+    .eq("operator_id", tenant.operatorId)
+    .maybeSingle();
 
-  const canQuote =
+  const myAcceptedQuote = (quotes ?? []).find(
+    (q) => q.status === "accepted",
+  );
+  const canManageReservation = !!myAcceptedQuote;
+
+  const reservationAttachments: OperatorAttachment[] = [];
+  const issuanceAttachments: Partial<Record<AttachmentKind, OperatorAttachment[]>> = {};
+  for (const a of attachmentsRaw ?? []) {
+    const row: OperatorAttachment = {
+      id: a.id,
+      fileName: a.file_name,
+      storagePath: a.storage_path,
+      sizeBytes: a.size_bytes,
+      createdAt: a.created_at,
+    };
+    if (a.kind === "reservation") {
+      reservationAttachments.push(row);
+    } else if (
+      a.kind === "voucher" ||
+      a.kind === "invoice" ||
+      a.kind === "file_doc"
+    ) {
+      (issuanceAttachments[a.kind] ??= []).push(row);
+    }
+  }
+
+  const showIssuance =
+    canManageReservation &&
+    !!reservation &&
+    request.status !== "cancelled" &&
+    request.status !== "closed";
+  const alreadyIssued =
+    request.status === "issued" ||
+    request.status === "payment_pending" ||
+    request.status === "closed";
+
+  const passengers: PassengerView[] = (passengersRaw ?? []).map((p) => ({
+    id: p.id,
+    fullName: p.full_name,
+    passengerType: p.passenger_type,
+    documentType: p.document_type,
+    documentNumber: p.document_number,
+    birthDate: p.birth_date,
+  }));
+
+  const passengerAttachments: Record<string, AttachmentView[]> = {};
+  for (const a of attachmentsRaw ?? []) {
+    if (!a.passenger_id) continue;
+    (passengerAttachments[a.passenger_id] ??= []).push({
+      id: a.id,
+      fileName: a.file_name,
+      storagePath: a.storage_path,
+      sizeBytes: a.size_bytes,
+    });
+  }
+
+  const showPassengers =
+    request.status === "accepted" ||
+    request.status === "partially_accepted" ||
+    request.status === "reserved" ||
+    request.status === "docs_uploaded" ||
+    request.status === "issued" ||
+    request.status === "payment_pending" ||
+    request.status === "closed";
+
+  // Quote vigente (la última con estado relevante) → submitted | accepted | rejected
+  const activeQuote =
+    (quotes ?? []).find(
+      (q) => q.status === "submitted" || q.status === "accepted",
+    ) ?? null;
+  const rejectedQuote = !activeQuote
+    ? ((quotes ?? []).find((q) => q.status === "rejected") ?? null)
+    : null;
+  const visibleQuote = activeQuote ?? rejectedQuote;
+  const historicQuotes = (quotes ?? []).filter(
+    (q) => q.id !== visibleQuote?.id,
+  );
+
+  const requestOpen =
     request.status !== "cancelled" &&
     request.status !== "closed" &&
     request.status !== "accepted" &&
+    request.status !== "partially_accepted" &&
     request.status !== "reserved" &&
     request.status !== "issued" &&
     request.status !== "docs_uploaded" &&
     request.status !== "payment_pending";
+
+  // El operador puede mandar nueva cotización solo si no hay una accepted/rejected
+  // ya cerrada para él, y la request sigue abierta.
+  const canQuote =
+    requestOpen &&
+    !(activeQuote && activeQuote.status === "accepted") &&
+    !rejectedQuote;
 
   return (
     <div className="space-y-6">
@@ -145,28 +272,64 @@ export default async function OperatorRequestDetailPage({
         </section>
       )}
 
-      {activeQuote && (
-        <section className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Tu cotización activa</h2>
-            <WithdrawButton quoteId={activeQuote.id} requestId={request.id} />
+      {visibleQuote && (
+        <section
+          className={
+            visibleQuote.status === "accepted"
+              ? "rounded-2xl border border-emerald-300 bg-emerald-50/50 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/20"
+              : visibleQuote.status === "rejected"
+                ? "rounded-2xl border border-red-200 bg-red-50/40 p-5 dark:border-red-900/40 dark:bg-red-950/20"
+                : "rounded-2xl border border-blue-200 bg-blue-50/30 p-5 dark:border-blue-900/40 dark:bg-blue-950/10"
+          }
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold">
+                {visibleQuote.status === "accepted"
+                  ? "Tu cotización fue aceptada"
+                  : visibleQuote.status === "rejected"
+                    ? "Tu cotización fue rechazada"
+                    : "Tu cotización activa"}
+              </h2>
+              {visibleQuote.status === "accepted" && (
+                <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                  {(() => {
+                    const total = (visibleQuote.items ?? []).length;
+                    const accepted = (visibleQuote.items ?? []).filter(
+                      (i) => i.accepted_at,
+                    ).length;
+                    if (total === 0) return "Aceptación total.";
+                    if (accepted === total) return "Aceptación total.";
+                    return `Aceptación parcial: ${accepted} de ${total} ítem(s).`;
+                  })()}
+                </p>
+              )}
+            </div>
+            {visibleQuote.status === "submitted" && (
+              <WithdrawButton quoteId={visibleQuote.id} requestId={request.id} />
+            )}
           </div>
           <QuoteSummary
-            totalAmount={Number(activeQuote.total_amount)}
-            currency={activeQuote.currency}
+            totalAmount={Number(visibleQuote.total_amount)}
+            currency={visibleQuote.currency}
             exchangeRate={
-              activeQuote.exchange_rate_usd_ars
-                ? Number(activeQuote.exchange_rate_usd_ars)
+              visibleQuote.exchange_rate_usd_ars
+                ? Number(visibleQuote.exchange_rate_usd_ars)
                 : null
             }
-            validUntil={activeQuote.valid_until}
-            paymentTerms={activeQuote.payment_terms}
-            notes={activeQuote.notes}
-            items={(activeQuote.items ?? []).map((i) => ({
-              description: i.description,
-              amount: Number(i.amount),
-            }))}
-            submittedAt={activeQuote.submitted_at}
+            validUntil={visibleQuote.valid_until}
+            paymentTerms={visibleQuote.payment_terms}
+            notes={visibleQuote.notes}
+            items={(visibleQuote.items ?? [])
+              .slice()
+              .sort((a, b) => a.sort_order - b.sort_order)
+              .map((i) => ({
+                description: i.description,
+                amount: Number(i.amount),
+                acceptedAt: i.accepted_at,
+              }))}
+            submittedAt={visibleQuote.submitted_at}
+            quoteStatus={visibleQuote.status}
           />
         </section>
       )}
@@ -174,13 +337,15 @@ export default async function OperatorRequestDetailPage({
       {canQuote && (
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="mb-4 text-sm font-semibold">
-            {activeQuote ? "Reemplazar con una nueva cotización" : "Enviar cotización"}
+            {activeQuote && activeQuote.status === "submitted"
+              ? "Reemplazar con una nueva cotización"
+              : "Enviar cotización"}
           </h2>
           <QuoteForm
             requestId={request.id}
             mepSell={mep?.sell ?? null}
             initial={
-              activeQuote
+              activeQuote && activeQuote.status === "submitted"
                 ? {
                     totalAmount: Number(activeQuote.total_amount),
                     currency: activeQuote.currency,
@@ -202,6 +367,45 @@ export default async function OperatorRequestDetailPage({
             }
           />
         </section>
+      )}
+
+      {showPassengers && (
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-3 text-sm font-semibold">Pasajeros y documentos</h2>
+          <PassengersView
+            passengers={passengers}
+            attachmentsByPassenger={passengerAttachments}
+          />
+        </section>
+      )}
+
+      {canManageReservation && (
+        <ReservationPanel
+          agencyId={request.agency.id}
+          requestId={request.id}
+          operatorId={tenant.operatorId}
+          initial={
+            reservation
+              ? {
+                  reservationCode: reservation.reservation_code,
+                  notes: reservation.notes,
+                  createdAt: reservation.created_at,
+                }
+              : null
+          }
+          attachments={reservationAttachments}
+        />
+      )}
+
+      {showIssuance && (
+        <IssuancePanel
+          agencyId={request.agency.id}
+          requestId={request.id}
+          operatorId={tenant.operatorId}
+          attachmentsByKind={issuanceAttachments}
+          alreadyIssued={alreadyIssued}
+          issuedAt={request.issued_at}
+        />
       )}
 
       {historicQuotes.length > 0 && (
@@ -258,6 +462,7 @@ function QuoteSummary({
   notes,
   items,
   submittedAt,
+  quoteStatus,
 }: {
   totalAmount: number;
   currency: "USD" | "ARS";
@@ -265,10 +470,12 @@ function QuoteSummary({
   validUntil: string | null;
   paymentTerms: string | null;
   notes: string | null;
-  items: { description: string; amount: number }[];
+  items: { description: string; amount: number; acceptedAt: string | null }[];
   submittedAt: string;
+  quoteStatus: "submitted" | "accepted" | "rejected" | "withdrawn" | "superseded";
 }) {
   const expired = validUntil && new Date(validUntil) < new Date();
+  const isAccepted = quoteStatus === "accepted";
   return (
     <div className="space-y-3 text-sm">
       <div className="flex flex-wrap items-baseline gap-3">
@@ -303,7 +510,20 @@ function QuoteSummary({
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {items.map((i, idx) => (
               <li key={idx} className="flex justify-between py-1.5 text-sm">
-                <span>{i.description}</span>
+                <span
+                  className={
+                    i.acceptedAt
+                      ? "font-medium text-emerald-700 dark:text-emerald-400"
+                      : isAccepted
+                        ? "text-zinc-500 line-through"
+                        : ""
+                  }
+                >
+                  {i.description}
+                  {i.acceptedAt && (
+                    <span className="ml-1 text-xs">✓ aceptado</span>
+                  )}
+                </span>
                 <span className="font-mono">
                   {formatMoney(i.amount, currency)}
                 </span>

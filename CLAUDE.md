@@ -123,13 +123,18 @@ legacy/leo-cotizador.html    # HTML standalone original. Conservar hasta confirm
 - **`invitations`**: `kind` (agency_member/operator_member/operator_link), `email`, `status`, `token`, `expires_at` (14 días default), `agency_id`/`operator_id` según kind, `role`
 
 ### Solicitudes
-- **`quote_requests`**: `code` (TD-NNNN por agencia), `status` (11 valores), datos de cliente, datos de viaje, `services` (array de service_type), `notes`. Unique `(agency_id, code)`.
+- **`quote_requests`**: `code` (TD-NNNN por agencia), `status` (11 valores), datos de cliente, datos de viaje, `services` (array de service_type), `notes`, `issued_at` (set por `mark_request_issued`). Unique `(agency_id, code)`.
 - **`quote_request_dispatches`** (unique `quote_request_id, operator_id`): a qué operadores se envió y cuándo.
 - **`quote_request_status_history`**: `from_status`, `to_status`, `changed_by`, `changed_at`, `notes`.
 
 ### Cotizaciones
 - **`quotes`**: `quote_request_id`, `operator_id`, `status` (submitted/withdrawn/superseded/accepted/rejected), `total_amount`, `currency`, `exchange_rate_usd_ars` (snapshot del MEP cuando currency=ARS), `payment_terms`, `valid_until`, `notes`, `submitted_by`, timestamps. Unique parcial sobre `(quote_request_id, operator_id) where status = 'submitted'`.
-- **`quote_items`**: `quote_id`, `sort_order`, `description`, `amount`. Cascade delete con la quote.
+- **`quote_items`**: `quote_id`, `sort_order`, `description`, `amount`, `accepted_at` (timestamptz nullable — set cuando la agencia acepta total o parcial). Cascade delete con la quote.
+
+### Pasajeros y attachments
+- **`passengers`**: cargados por la agencia, `quote_request_id`, `agency_id`, `full_name`, `passenger_type` (adult/child/infant), `document_type`/`document_number`, `birth_date`, `email`, `phone`, `notes`.
+- **`attachments`**: tabla genérica de archivos del expediente. `kind` enum (passenger_doc/reservation/voucher/invoice/file_doc/payment_receipt). `passenger_id` para passenger_doc, `operator_id` para los que sube el operador (reservation/voucher/invoice/file_doc). `storage_path` unique. Bucket privado `attachments` con path convention `{agency_id}/{request_id}/{kind}/{uuid}-{filename}`; storage policies validan membership desde `storage.foldername`.
+- **`reservations`**: una por request (unique `quote_request_id`), `operator_id`, `agency_id`, `reservation_code` (PNR/file/locator), `notes`. Insertable solo por el operador con quote `accepted` (validado en RPC).
 
 ### Enums
 - `member_role`: owner, admin, member
@@ -139,6 +144,8 @@ legacy/leo-cotizador.html    # HTML standalone original. Conservar hasta confirm
 - `service_type`: flights, hotel, transfers, excursions, package, cruise, insurance, other
 - `currency`: USD, ARS
 - `quote_status`: submitted, withdrawn, superseded, accepted, rejected
+- `passenger_type`: adult, child, infant
+- `attachment_kind`: passenger_doc, reservation, voucher, invoice, file_doc, payment_receipt
 
 ### RLS
 Todas las tablas tienen RLS habilitado. Helpers `security definer` con `set search_path = public` para evitar recursión:
@@ -159,6 +166,15 @@ Todas las tablas tienen RLS habilitado. Helpers `security definer` con `set sear
 - `cancel_quote_request(request_id, notes default null)`
 - `submit_quote(request_id, total_amount, currency, payment_terms, valid_until, notes, exchange_rate_usd_ars, items jsonb)` → uuid. Resuelve operator_id desde dispatches + operator_members del user actual. Marca quote previa del mismo operador como `superseded` (reemplazo automático). Si `request.status = sent`, transiciona a `quoted`.
 - `withdraw_quote(quote_id)` → estado `withdrawn`, sólo si la quote está `submitted`.
+- `accept_quote(quote_id)` → aceptación total. Marca todos los items como `accepted_at`, otras quotes `submitted` del mismo request → `rejected`, request → `accepted`.
+- `accept_quote_items(quote_id, item_ids[])` → aceptación parcial. Si todos los items quedaron aceptados, request → `accepted`; si no, `partially_accepted`.
+- `reject_quote(quote_id)` → rechazo manual de una quote.
+- `upsert_passenger(...)` → uuid. Crea (si `p_id` null) o edita un pasajero. Solo agencia.
+- `delete_passenger(id)`.
+- `register_attachment(request_id, kind, storage_path, file_name, mime_type, size_bytes, passenger_id, operator_id)` → uuid. Lado agencia: `operator_id null`. Lado operador: validado por membership + dispatched.
+- `delete_attachment(id)` → devuelve `storage_path` para que el client borre el blob.
+- `upsert_reservation(request_id, reservation_code, notes)` → uuid. Sólo operador con quote `accepted`. Promueve `accepted/partially_accepted` → `reserved`.
+- `mark_request_issued(request_id)` → `reserved/...` → `issued`. Setea `quote_requests.issued_at`. Requiere reservation cargada.
 
 ## Auth
 
@@ -201,30 +217,19 @@ Migración `quote_requests` + `quote_requests_rpc_defaults`. Schema `quote_reque
 ### Iteración 5 — Cotización del operador
 Migración `quotes`. Schema `quotes` (status, total_amount, currency USD/ARS, exchange_rate_usd_ars como snapshot del MEP, payment_terms, valid_until, notes) + `quote_items` (sort_order, description, amount). Enums `currency` (USD/ARS) y `quote_status` (submitted/withdrawn/superseded/accepted/rejected). RLS para que ambos lados (agencia de la request, operador miembro del operator) lean. Unique parcial sobre `(request, operator)` cuando status = submitted, complementado con supersede automático en `submit_quote`. RPCs `submit_quote` (recibe items como jsonb, resuelve operator_id desde dispatch + membership) y `withdraw_quote`. Helper `lib/exchange-rate.ts` con dolarapi MEP (revalidate 15m, fallback a null si la API falla). UI operador: cotización activa, form con switch USD/ARS, MEP autollenado pero editable, ítems dinámicos, conversión visible (USD→ARS al MEP, ARS→USD al TC ingresado), reemplazo automático de cotización activa, retiro. UI agencia: cards comparables por operador con total, TC, validez (con flag de vencida), pago, ítems y notas. Transición `sent → quoted` al llegar la primera cotización.
 
-## Estado: iteraciones pendientes
-
 ### Iteración 6 — Aceptación (total / parcial)
-- Schema: `quote_acceptances` (qué items aceptó la agencia), o flag `accepted` por item.
-- RPCs: `accept_quote_total`, `accept_quote_items(quote_id, item_ids[])`, `reject_quote`.
-- Status: `accepted` o `partially_accepted`.
-- Side effect: deshabilita las cotizaciones de los otros operadores en esa solicitud (o las marca como "no seleccionadas").
+Migración `quote_acceptance`: agrega `accepted_at` (timestamptz nullable) en `quote_items`. RPCs `accept_quote(quote_id)` (total, marca todos los items), `accept_quote_items(quote_id, item_ids[])` (parcial; si quedan todos aceptados, total) y `reject_quote(quote_id)` (rechazo manual). Side effects: las otras quotes `submitted` del mismo request quedan `rejected` automáticamente. Transición de la request a `accepted` o `partially_accepted` con history. UI agencia: `QuoteCard` cliente con flujo total/parcial (checkboxes en ítems con suma seleccionada en vivo) + rechazar. UI operador: card de "Tu cotización fue aceptada" con detalle de ítems aceptados (parcial muestra los ítems no aceptados tachados).
 
-### Iteración 7 — Documentación de pasajeros
-- Schema: `passengers` (nombre, dni, fecha nacimiento, tipo, contacto), `attachments` con kind `passenger_doc`.
-- Storage: bucket `passenger-docs` con RLS por agencia y operador despachado.
-- UI agencia: cargar pasajeros una vez aceptado el servicio, subir DNI/pasaporte.
-- UI operador: descargar docs para emitir.
+### Iteración 7 — Pasajeros + attachments + storage
+Migración `passengers_attachments`: tabla `passengers` (multi-pasajero por request, ligada a `quote_request_id` y `agency_id`), tabla genérica `attachments` (con `kind` enum), bucket privado `attachments` con storage policies que validan agency_id desde `(storage.foldername(name))[1]` y operator dispatched desde `[2]`. Path convention `{agency_id}/{request_id}/{kind}/{uuid}-{filename}`. Enums `passenger_type` (adult/child/infant) y `attachment_kind`. RPCs `upsert_passenger`, `delete_passenger`, `register_attachment` (lado agencia con `operator_id null`, lado operador con membership), `delete_attachment` (devuelve `storage_path` para que el client borre el blob). Helpers `lib/passengers.ts` con labels, opciones, `buildAttachmentPath`, `formatBytes`. UI agencia (cuando la request llegó a `accepted/partially_accepted/...`): `PassengersPanel` cliente con alta/edición inline, lista, eliminación, subida de docs por pasajero (uploads vía `supabase.storage` browser client → RPC para registrar metadata). UI operador: vista read-only de pasajeros con sus docs descargables (signed URLs server-side).
 
 ### Iteración 8 — Reserva del operador
-- Schema: `reservations` (operator_id, quote_request_id, reservation_code, attached_at), `attachments` kind `reservation`.
-- UI operador: subir comprobante de reserva.
-- Status: pasa a `reserved`.
+Migración `reservations`: tabla `reservations` (unique por `quote_request_id`) con `reservation_code`, `notes`, `agency_id`, `operator_id`. RLS con policies symmetric (agency members + operator members). RPC `upsert_reservation` valida que el operador tenga quote `accepted` y promueve la request `accepted/partially_accepted → reserved` con history. UI operador: `ReservationPanel` cliente con form para code+notas, edición y subida de comprobantes (`OperatorAttachmentsBlock` reusable, kind `reservation`). UI agencia: `ReservationView` read-only con código, notas, operador y comprobantes descargables.
 
-### Iteración 9 — Emisión: voucher / pasaje / factura / file
-- Schema: `attachments` con kinds `voucher`, `invoice`, `file_doc`.
-- UI operador: subir cada pieza, marcar emitida.
-- Status: pasa a `issued`.
-- Status: pasa a `docs_uploaded` cuando todos los docs requeridos están.
+### Iteración 9 — Emisión
+Migración `request_issuance`: agrega `issued_at` en `quote_requests` y RPC `mark_request_issued` (requiere quote `accepted` + reserva cargada; transiciona a `issued` con history). UI operador: `IssuancePanel` con tres bloques (`voucher`, `invoice`, `file_doc`) — cada uno usa `OperatorAttachmentsBlock` para subir/borrar — y un botón "Marcar como emitida". UI agencia: `IssuanceView` read-only con grid de los tres tipos y badge "Emitida {fecha}".
+
+## Estado: iteraciones pendientes
 
 ### Iteración 10 — Vencimiento BSP
 - Schema: `bsp_calendar` (fecha emisión → fecha vencimiento). Hardcodear el calendario IATA del año.

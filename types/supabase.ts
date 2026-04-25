@@ -112,6 +112,80 @@ export type Database = {
           },
         ]
       }
+      attachments: {
+        Row: {
+          agency_id: string
+          created_at: string
+          file_name: string
+          id: string
+          kind: Database["public"]["Enums"]["attachment_kind"]
+          mime_type: string | null
+          operator_id: string | null
+          passenger_id: string | null
+          quote_request_id: string
+          size_bytes: number | null
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          file_name: string
+          id?: string
+          kind: Database["public"]["Enums"]["attachment_kind"]
+          mime_type?: string | null
+          operator_id?: string | null
+          passenger_id?: string | null
+          quote_request_id: string
+          size_bytes?: number | null
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["attachment_kind"]
+          mime_type?: string | null
+          operator_id?: string | null
+          passenger_id?: string | null
+          quote_request_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachments_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "passengers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachments_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -231,8 +305,75 @@ export type Database = {
         }
         Relationships: []
       }
+      passengers: {
+        Row: {
+          agency_id: string
+          birth_date: string | null
+          created_at: string
+          created_by: string | null
+          document_number: string | null
+          document_type: string | null
+          email: string | null
+          full_name: string
+          id: string
+          notes: string | null
+          passenger_type: Database["public"]["Enums"]["passenger_type"]
+          phone: string | null
+          quote_request_id: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          birth_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_number?: string | null
+          document_type?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          passenger_type?: Database["public"]["Enums"]["passenger_type"]
+          phone?: string | null
+          quote_request_id: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          birth_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_number?: string | null
+          document_type?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          passenger_type?: Database["public"]["Enums"]["passenger_type"]
+          phone?: string | null
+          quote_request_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "passengers_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "passengers_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_items: {
         Row: {
+          accepted_at: string | null
           amount: number
           created_at: string
           description: string
@@ -241,6 +382,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          accepted_at?: string | null
           amount: number
           created_at?: string
           description: string
@@ -249,6 +391,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          accepted_at?: string | null
           amount?: number
           created_at?: string
           description?: string
@@ -353,6 +496,7 @@ export type Database = {
           destination: string
           flexible_dates: boolean
           id: string
+          issued_at: string | null
           notes: string | null
           pax_adults: number
           pax_children: number
@@ -374,6 +518,7 @@ export type Database = {
           destination: string
           flexible_dates?: boolean
           id?: string
+          issued_at?: string | null
           notes?: string | null
           pax_adults?: number
           pax_children?: number
@@ -395,6 +540,7 @@ export type Database = {
           destination?: string
           flexible_dates?: boolean
           id?: string
+          issued_at?: string | null
           notes?: string | null
           pax_adults?: number
           pax_children?: number
@@ -477,12 +623,75 @@ export type Database = {
           },
         ]
       }
+      reservations: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          operator_id: string
+          quote_request_id: string
+          reservation_code: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          operator_id: string
+          quote_request_id: string
+          reservation_code: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          operator_id?: string
+          quote_request_id?: string
+          reservation_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: true
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       accept_invitation: { Args: { p_token: string }; Returns: Json }
+      accept_quote: { Args: { p_quote_id: string }; Returns: undefined }
+      accept_quote_items: {
+        Args: { p_item_ids: string[]; p_quote_id: string }
+        Returns: undefined
+      }
       cancel_quote_request: {
         Args: { p_notes?: string; p_request_id: string }
         Returns: undefined
@@ -520,6 +729,8 @@ export type Database = {
         }
         Returns: string
       }
+      delete_attachment: { Args: { p_id: string }; Returns: string }
+      delete_passenger: { Args: { p_id: string }; Returns: undefined }
       get_invitation_preview: {
         Args: { p_token: string }
         Returns: {
@@ -539,6 +750,10 @@ export type Database = {
         Returns: boolean
       }
       is_operator_member: { Args: { p_operator_id: string }; Returns: boolean }
+      mark_request_issued: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       pending_invitations_for_email: {
         Args: { p_email: string }
         Returns: {
@@ -552,6 +767,20 @@ export type Database = {
           token: string
         }[]
       }
+      register_attachment: {
+        Args: {
+          p_file_name: string
+          p_kind: Database["public"]["Enums"]["attachment_kind"]
+          p_mime_type?: string
+          p_operator_id?: string
+          p_passenger_id?: string
+          p_request_id: string
+          p_size_bytes?: number
+          p_storage_path: string
+        }
+        Returns: string
+      }
+      reject_quote: { Args: { p_quote_id: string }; Returns: undefined }
       revoke_invitation: {
         Args: { p_invitation_id: string }
         Returns: undefined
@@ -573,13 +802,44 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_passenger: {
+        Args: {
+          p_birth_date?: string
+          p_document_number?: string
+          p_document_type?: string
+          p_email?: string
+          p_full_name: string
+          p_id?: string
+          p_notes?: string
+          p_passenger_type: Database["public"]["Enums"]["passenger_type"]
+          p_phone?: string
+          p_request_id: string
+        }
+        Returns: string
+      }
+      upsert_reservation: {
+        Args: {
+          p_notes?: string
+          p_request_id: string
+          p_reservation_code: string
+        }
+        Returns: string
+      }
       withdraw_quote: { Args: { p_quote_id: string }; Returns: undefined }
     }
     Enums: {
+      attachment_kind:
+        | "passenger_doc"
+        | "reservation"
+        | "voucher"
+        | "invoice"
+        | "file_doc"
+        | "payment_receipt"
       currency: "USD" | "ARS"
       invitation_kind: "agency_member" | "operator_member" | "operator_link"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
       member_role: "owner" | "admin" | "member"
+      passenger_type: "adult" | "child" | "infant"
       quote_status:
         | "submitted"
         | "withdrawn"
@@ -734,10 +994,19 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      attachment_kind: [
+        "passenger_doc",
+        "reservation",
+        "voucher",
+        "invoice",
+        "file_doc",
+        "payment_receipt",
+      ],
       currency: ["USD", "ARS"],
       invitation_kind: ["agency_member", "operator_member", "operator_link"],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
       member_role: ["owner", "admin", "member"],
+      passenger_type: ["adult", "child", "infant"],
       quote_status: [
         "submitted",
         "withdrawn",

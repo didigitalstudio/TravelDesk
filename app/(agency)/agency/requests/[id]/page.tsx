@@ -4,16 +4,25 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { StatusBadge } from "@/components/status-badge";
 import {
-  QUOTE_STATUS_LABELS,
   SERVICE_LABELS,
   STATUS_LABELS,
   formatDateRange,
-  formatMoney,
   paxBreakdown,
   totalPax,
 } from "@/lib/requests";
 import { DispatchPanel } from "./dispatch-panel";
 import { CancelButton } from "./cancel-button";
+import { QuoteCard } from "./quote-card";
+import {
+  PassengersPanel,
+  type AttachmentRow,
+  type PassengerRow,
+} from "./passengers-panel";
+import {
+  ReservationView,
+  type ReservationAttachment,
+} from "./reservation-view";
+import { IssuanceView, type IssuanceAttachment } from "./issuance-view";
 
 export const metadata = { title: "Solicitud — Travel Desk" };
 
@@ -62,11 +71,127 @@ export default async function RequestDetailPage({
     supabase
       .from("quotes")
       .select(
-        "*, operator:operators!inner(id, name), items:quote_items(id, sort_order, description, amount)",
+        "*, operator:operators!inner(id, name), items:quote_items(id, sort_order, description, amount, accepted_at)",
       )
       .eq("quote_request_id", id)
       .order("submitted_at", { ascending: false }),
   ]);
+
+  const acceptanceReached =
+    request.status === "accepted" ||
+    request.status === "partially_accepted" ||
+    request.status === "reserved" ||
+    request.status === "docs_uploaded" ||
+    request.status === "issued" ||
+    request.status === "payment_pending" ||
+    request.status === "closed";
+
+  const [
+    { data: passengersRaw },
+    { data: attachmentsRaw },
+    { data: reservationRow },
+  ] = await Promise.all([
+    acceptanceReached
+      ? supabase
+          .from("passengers")
+          .select(
+            "id, full_name, passenger_type, document_type, document_number, birth_date, email, phone, notes",
+          )
+          .eq("quote_request_id", id)
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] as never[] }),
+    acceptanceReached
+      ? supabase
+          .from("attachments")
+          .select(
+            "id, file_name, storage_path, mime_type, size_bytes, created_at, kind, passenger_id",
+          )
+          .eq("quote_request_id", id)
+          .in("kind", [
+            "passenger_doc",
+            "reservation",
+            "voucher",
+            "invoice",
+            "file_doc",
+          ])
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as never[] }),
+    acceptanceReached
+      ? supabase
+          .from("reservations")
+          .select(
+            "id, reservation_code, notes, created_at, operator:operators!inner(id, name)",
+          )
+          .eq("quote_request_id", id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const passengers: PassengerRow[] = (passengersRaw ?? []).map((p) => ({
+    id: p.id,
+    fullName: p.full_name,
+    passengerType: p.passenger_type,
+    documentType: p.document_type,
+    documentNumber: p.document_number,
+    birthDate: p.birth_date,
+    email: p.email,
+    phone: p.phone,
+    notes: p.notes,
+  }));
+
+  const attachmentsByPassenger: Record<string, AttachmentRow[]> = {};
+  const reservationAttachments: ReservationAttachment[] = [];
+  const issuanceAttachments: IssuanceAttachment[] = [];
+  for (const a of attachmentsRaw ?? []) {
+    if (a.kind === "passenger_doc") {
+      if (!a.passenger_id) continue;
+      const row: AttachmentRow = {
+        id: a.id,
+        fileName: a.file_name,
+        storagePath: a.storage_path,
+        mimeType: a.mime_type,
+        sizeBytes: a.size_bytes,
+        createdAt: a.created_at,
+      };
+      (attachmentsByPassenger[a.passenger_id] ??= []).push(row);
+    } else if (a.kind === "reservation") {
+      reservationAttachments.push({
+        id: a.id,
+        fileName: a.file_name,
+        storagePath: a.storage_path,
+        sizeBytes: a.size_bytes,
+      });
+    } else if (
+      a.kind === "voucher" ||
+      a.kind === "invoice" ||
+      a.kind === "file_doc"
+    ) {
+      issuanceAttachments.push({
+        id: a.id,
+        fileName: a.file_name,
+        storagePath: a.storage_path,
+        sizeBytes: a.size_bytes,
+        kind: a.kind,
+      });
+    }
+  }
+
+  const showIssuanceView =
+    acceptanceReached &&
+    (issuanceAttachments.length > 0 ||
+      request.status === "issued" ||
+      request.status === "docs_uploaded" ||
+      request.status === "payment_pending" ||
+      request.status === "closed");
+
+  const requestActionable =
+    request.status !== "cancelled" &&
+    request.status !== "closed" &&
+    request.status !== "accepted" &&
+    request.status !== "reserved" &&
+    request.status !== "issued" &&
+    request.status !== "docs_uploaded" &&
+    request.status !== "payment_pending";
 
   const dispatchedIds = new Set((dispatches ?? []).map((d) => d.operator.id));
   const linkedOperators = (links ?? []).map((l) => l.operator);
@@ -207,102 +332,67 @@ export default async function RequestDetailPage({
             {quotes.map((q) => {
               const items = (q.items ?? [])
                 .slice()
-                .sort((a, b) => a.sort_order - b.sort_order);
-              const expired =
-                q.valid_until && new Date(q.valid_until) < new Date();
-              const isActive = q.status === "submitted";
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map((i) => ({
+                  id: i.id,
+                  description: i.description,
+                  amount: Number(i.amount),
+                  acceptedAt: i.accepted_at,
+                }));
               return (
-                <article
+                <QuoteCard
                   key={q.id}
-                  className={
-                    (isActive
-                      ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/10 "
-                      : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 ") +
-                    "rounded-2xl border p-5"
+                  quoteId={q.id}
+                  requestId={request.id}
+                  operatorName={q.operator.name}
+                  status={q.status}
+                  totalAmount={Number(q.total_amount)}
+                  currency={q.currency}
+                  exchangeRate={
+                    q.exchange_rate_usd_ars
+                      ? Number(q.exchange_rate_usd_ars)
+                      : null
                   }
-                >
-                  <header className="mb-3 flex items-start justify-between">
-                    <div>
-                      <div className="text-sm font-semibold">{q.operator.name}</div>
-                      <div className="text-xs text-zinc-500">
-                        {QUOTE_STATUS_LABELS[q.status]} ·{" "}
-                        {new Date(q.submitted_at).toLocaleString("es-AR")}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-semibold tracking-tight">
-                        {formatMoney(Number(q.total_amount), q.currency)}
-                      </div>
-                      {q.exchange_rate_usd_ars && (
-                        <div className="text-xs text-zinc-500">
-                          TC{" "}
-                          {Number(q.exchange_rate_usd_ars).toLocaleString("es-AR", {
-                            maximumFractionDigits: 2,
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </header>
-
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <div className="text-xs uppercase tracking-wider text-zinc-500">
-                        Validez
-                      </div>
-                      <div>
-                        {q.valid_until
-                          ? `${new Date(q.valid_until).toLocaleDateString("es-AR")}${expired ? " (vencida)" : ""}`
-                          : "—"}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs uppercase tracking-wider text-zinc-500">
-                        Pago
-                      </div>
-                      <div>{q.payment_terms ?? "—"}</div>
-                    </div>
-                  </div>
-
-                  {items.length > 0 && (
-                    <div className="mt-3">
-                      <div className="mb-1 text-xs uppercase tracking-wider text-zinc-500">
-                        Ítems
-                      </div>
-                      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                        {items.map((i) => (
-                          <li
-                            key={i.id}
-                            className="flex justify-between py-1.5 text-sm"
-                          >
-                            <span>{i.description}</span>
-                            <span className="font-mono">
-                              {formatMoney(Number(i.amount), q.currency)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {q.notes && (
-                    <div className="mt-3">
-                      <div className="mb-1 text-xs uppercase tracking-wider text-zinc-500">
-                        Notas
-                      </div>
-                      <p className="whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
-                        {q.notes}
-                      </p>
-                    </div>
-                  )}
-                </article>
+                  validUntil={q.valid_until}
+                  paymentTerms={q.payment_terms}
+                  notes={q.notes}
+                  submittedAt={q.submitted_at}
+                  items={items}
+                  canActOnRequest={requestActionable}
+                />
               );
             })}
           </div>
-          <p className="text-xs text-zinc-500">
-            La aceptación (total o parcial por ítem) se habilita en la próxima
-            iteración.
-          </p>
         </section>
+      )}
+
+      {acceptanceReached && (
+        <PassengersPanel
+          agencyId={tenant.agencyId}
+          requestId={request.id}
+          passengers={passengers}
+          attachmentsByPassenger={attachmentsByPassenger}
+          canEdit={!isCancelled && !isClosed}
+        />
+      )}
+
+      {reservationRow && (
+        <ReservationView
+          reservation={{
+            reservationCode: reservationRow.reservation_code,
+            notes: reservationRow.notes,
+            operatorName: reservationRow.operator.name,
+            createdAt: reservationRow.created_at,
+          }}
+          attachments={reservationAttachments}
+        />
+      )}
+
+      {showIssuanceView && (
+        <IssuanceView
+          attachments={issuanceAttachments}
+          issuedAt={request.issued_at}
+        />
       )}
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
