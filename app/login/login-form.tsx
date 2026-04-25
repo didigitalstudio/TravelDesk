@@ -5,7 +5,7 @@ import { requestMagicLink, type LoginState } from "./actions";
 
 const initialState: LoginState = { status: "idle" };
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [state, formAction, pending] = useActionState(requestMagicLink, initialState);
 
   if (state.status === "sent") {
@@ -19,6 +19,7 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="space-y-4">
+      {next && <input type="hidden" name="next" value={next} />}
       <div>
         <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
           Email

@@ -242,10 +242,45 @@ export type Database = {
         Args: { p_contact_email?: string; p_name: string; p_slug: string }
         Returns: string
       }
+      create_operator_link_invitation: {
+        Args: { p_agency_id: string; p_email: string }
+        Returns: {
+          id: string
+          token: string
+        }[]
+      }
+      get_invitation_preview: {
+        Args: { p_token: string }
+        Returns: {
+          agency_name: string
+          email: string
+          expires_at: string
+          kind: Database["public"]["Enums"]["invitation_kind"]
+          operator_name: string
+          status: Database["public"]["Enums"]["invitation_status"]
+        }[]
+      }
       is_agency_admin: { Args: { p_agency_id: string }; Returns: boolean }
       is_agency_member: { Args: { p_agency_id: string }; Returns: boolean }
       is_operator_admin: { Args: { p_operator_id: string }; Returns: boolean }
       is_operator_member: { Args: { p_operator_id: string }; Returns: boolean }
+      pending_invitations_for_email: {
+        Args: { p_email: string }
+        Returns: {
+          agency_name: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          kind: Database["public"]["Enums"]["invitation_kind"]
+          operator_name: string
+          token: string
+        }[]
+      }
+      revoke_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       invitation_kind: "agency_member" | "operator_member" | "operator_link"

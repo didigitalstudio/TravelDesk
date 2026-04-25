@@ -18,16 +18,20 @@ export async function requestMagicLink(
     return { status: "error", message: "Ingresá un email válido." };
   }
 
+  const next = String(formData.get("next") ?? "").trim();
   const h = await headers();
   const proto = h.get("x-forwarded-proto") ?? "https";
   const host = h.get("host") ?? "";
   const origin = `${proto}://${host}`;
+  const callbackUrl = next.startsWith("/")
+    ? `${origin}/auth/callback?next=${encodeURIComponent(next)}`
+    : `${origin}/auth/callback`;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: callbackUrl,
       shouldCreateUser: true,
     },
   });

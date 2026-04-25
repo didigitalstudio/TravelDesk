@@ -4,12 +4,17 @@ import { LoginForm } from "./login-form";
 
 export const metadata = { title: "Ingresar — Travel Desk" };
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) redirect("/");
+  if (user) redirect(next?.startsWith("/") ? next : "/");
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
@@ -20,7 +25,7 @@ export default async function LoginPage() {
             Ingresá con tu email y te mandamos un link mágico.
           </p>
         </div>
-        <LoginForm />
+        <LoginForm next={next?.startsWith("/") ? next : undefined} />
       </div>
     </main>
   );
