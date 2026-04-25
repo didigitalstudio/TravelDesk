@@ -231,6 +231,41 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_items: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          quote_id: string
+          sort_order: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          id?: string
+          quote_id: string
+          sort_order?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: string
+          quote_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_items_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_request_dispatches: {
         Row: {
           id: string
@@ -379,6 +414,69 @@ export type Database = {
           },
         ]
       }
+      quotes: {
+        Row: {
+          currency: Database["public"]["Enums"]["currency"]
+          exchange_rate_usd_ars: number | null
+          id: string
+          notes: string | null
+          operator_id: string
+          payment_terms: string | null
+          quote_request_id: string
+          status: Database["public"]["Enums"]["quote_status"]
+          submitted_at: string
+          submitted_by: string | null
+          total_amount: number
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          currency: Database["public"]["Enums"]["currency"]
+          exchange_rate_usd_ars?: number | null
+          id?: string
+          notes?: string | null
+          operator_id: string
+          payment_terms?: string | null
+          quote_request_id: string
+          status?: Database["public"]["Enums"]["quote_status"]
+          submitted_at?: string
+          submitted_by?: string | null
+          total_amount: number
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          currency?: Database["public"]["Enums"]["currency"]
+          exchange_rate_usd_ars?: number | null
+          id?: string
+          notes?: string | null
+          operator_id?: string
+          payment_terms?: string | null
+          quote_request_id?: string
+          status?: Database["public"]["Enums"]["quote_status"]
+          submitted_at?: string
+          submitted_by?: string | null
+          total_amount?: number
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -462,11 +560,32 @@ export type Database = {
         Args: { p_operator_ids: string[]; p_request_id: string }
         Returns: undefined
       }
+      submit_quote: {
+        Args: {
+          p_currency: Database["public"]["Enums"]["currency"]
+          p_exchange_rate_usd_ars?: number
+          p_items?: Json
+          p_notes?: string
+          p_payment_terms?: string
+          p_request_id: string
+          p_total_amount: number
+          p_valid_until?: string
+        }
+        Returns: string
+      }
+      withdraw_quote: { Args: { p_quote_id: string }; Returns: undefined }
     }
     Enums: {
+      currency: "USD" | "ARS"
       invitation_kind: "agency_member" | "operator_member" | "operator_link"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
       member_role: "owner" | "admin" | "member"
+      quote_status:
+        | "submitted"
+        | "withdrawn"
+        | "superseded"
+        | "accepted"
+        | "rejected"
       request_status:
         | "draft"
         | "sent"
@@ -615,9 +734,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      currency: ["USD", "ARS"],
       invitation_kind: ["agency_member", "operator_member", "operator_link"],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
       member_role: ["owner", "admin", "member"],
+      quote_status: [
+        "submitted",
+        "withdrawn",
+        "superseded",
+        "accepted",
+        "rejected",
+      ],
       request_status: [
         "draft",
         "sent",

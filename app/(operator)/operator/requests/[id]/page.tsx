@@ -4,11 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { StatusBadge } from "@/components/status-badge";
 import {
+  QUOTE_STATUS_LABELS,
   SERVICE_LABELS,
   formatDateRange,
+  formatMoney,
   paxBreakdown,
   totalPax,
 } from "@/lib/requests";
+import { fetchMepQuote } from "@/lib/exchange-rate";
+import { QuoteForm } from "./quote-form";
+import { WithdrawButton } from "./withdraw-button";
 
 export const metadata = { title: "Solicitud — Travel Desk" };
 
@@ -25,8 +30,6 @@ export default async function OperatorRequestDetailPage({
 
   const supabase = await createClient();
 
-  // Validar que esta solicitud fue despachada a este operador (RLS también lo
-  // garantiza, pero es claro a nivel query).
   const { data: dispatch } = await supabase
     .from("quote_request_dispatches")
     .select(
@@ -38,6 +41,28 @@ export default async function OperatorRequestDetailPage({
 
   if (!dispatch) notFound();
   const request = dispatch.request;
+
+  const [{ data: quotes }, mep] = await Promise.all([
+    supabase
+      .from("quotes")
+      .select("*, items:quote_items(id, sort_order, description, amount)")
+      .eq("quote_request_id", id)
+      .eq("operator_id", tenant.operatorId)
+      .order("submitted_at", { ascending: false }),
+    fetchMepQuote(),
+  ]);
+
+  const activeQuote = (quotes ?? []).find((q) => q.status === "submitted") ?? null;
+  const historicQuotes = (quotes ?? []).filter((q) => q.id !== activeQuote?.id);
+
+  const canQuote =
+    request.status !== "cancelled" &&
+    request.status !== "closed" &&
+    request.status !== "accepted" &&
+    request.status !== "reserved" &&
+    request.status !== "issued" &&
+    request.status !== "docs_uploaded" &&
+    request.status !== "payment_pending";
 
   return (
     <div className="space-y-6">
@@ -120,13 +145,88 @@ export default async function OperatorRequestDetailPage({
         </section>
       )}
 
-      <section className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-5 text-sm dark:border-zinc-700 dark:bg-zinc-950">
-        <h2 className="mb-1 font-semibold">Cotización</h2>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          La carga de cotización (precio, condiciones de pago, validez) se habilita en la
-          próxima iteración.
-        </p>
-      </section>
+      {activeQuote && (
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Tu cotización activa</h2>
+            <WithdrawButton quoteId={activeQuote.id} requestId={request.id} />
+          </div>
+          <QuoteSummary
+            totalAmount={Number(activeQuote.total_amount)}
+            currency={activeQuote.currency}
+            exchangeRate={
+              activeQuote.exchange_rate_usd_ars
+                ? Number(activeQuote.exchange_rate_usd_ars)
+                : null
+            }
+            validUntil={activeQuote.valid_until}
+            paymentTerms={activeQuote.payment_terms}
+            notes={activeQuote.notes}
+            items={(activeQuote.items ?? []).map((i) => ({
+              description: i.description,
+              amount: Number(i.amount),
+            }))}
+            submittedAt={activeQuote.submitted_at}
+          />
+        </section>
+      )}
+
+      {canQuote && (
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-4 text-sm font-semibold">
+            {activeQuote ? "Reemplazar con una nueva cotización" : "Enviar cotización"}
+          </h2>
+          <QuoteForm
+            requestId={request.id}
+            mepSell={mep?.sell ?? null}
+            initial={
+              activeQuote
+                ? {
+                    totalAmount: Number(activeQuote.total_amount),
+                    currency: activeQuote.currency,
+                    paymentTerms: activeQuote.payment_terms,
+                    validUntil: activeQuote.valid_until,
+                    notes: activeQuote.notes,
+                    exchangeRate: activeQuote.exchange_rate_usd_ars
+                      ? Number(activeQuote.exchange_rate_usd_ars)
+                      : null,
+                    items: (activeQuote.items ?? [])
+                      .slice()
+                      .sort((a, b) => a.sort_order - b.sort_order)
+                      .map((i) => ({
+                        description: i.description,
+                        amount: Number(i.amount),
+                      })),
+                  }
+                : undefined
+            }
+          />
+        </section>
+      )}
+
+      {historicQuotes.length > 0 && (
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-3 text-sm font-semibold">Historial de cotizaciones</h2>
+          <ul className="space-y-3">
+            {historicQuotes.map((q) => (
+              <li
+                key={q.id}
+                className="rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">
+                    {formatMoney(Number(q.total_amount), q.currency)}
+                  </span>
+                  <span className="text-xs text-zinc-500">
+                    {QUOTE_STATUS_LABELS[q.status]} ·{" "}
+                    {new Date(q.submitted_at).toLocaleString("es-AR")}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
@@ -145,6 +245,79 @@ function Detail({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-xs uppercase tracking-wider text-zinc-500">{label}</div>
       <div className="text-sm">{value}</div>
+    </div>
+  );
+}
+
+function QuoteSummary({
+  totalAmount,
+  currency,
+  exchangeRate,
+  validUntil,
+  paymentTerms,
+  notes,
+  items,
+  submittedAt,
+}: {
+  totalAmount: number;
+  currency: "USD" | "ARS";
+  exchangeRate: number | null;
+  validUntil: string | null;
+  paymentTerms: string | null;
+  notes: string | null;
+  items: { description: string; amount: number }[];
+  submittedAt: string;
+}) {
+  const expired = validUntil && new Date(validUntil) < new Date();
+  return (
+    <div className="space-y-3 text-sm">
+      <div className="flex flex-wrap items-baseline gap-3">
+        <span className="text-2xl font-semibold tracking-tight">
+          {formatMoney(totalAmount, currency)}
+        </span>
+        {exchangeRate && (
+          <span className="text-xs text-zinc-500">
+            TC USD→ARS: {exchangeRate.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
+          </span>
+        )}
+        <span className="text-xs text-zinc-500">
+          Enviada {new Date(submittedAt).toLocaleString("es-AR")}
+        </span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Detail
+          label="Validez"
+          value={
+            validUntil
+              ? `${new Date(validUntil).toLocaleDateString("es-AR")}${expired ? " (vencida)" : ""}`
+              : "—"
+          }
+        />
+        <Detail label="Pago" value={paymentTerms ?? "—"} />
+      </div>
+      {items.length > 0 && (
+        <div>
+          <div className="mb-1 text-xs uppercase tracking-wider text-zinc-500">
+            Ítems
+          </div>
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {items.map((i, idx) => (
+              <li key={idx} className="flex justify-between py-1.5 text-sm">
+                <span>{i.description}</span>
+                <span className="font-mono">
+                  {formatMoney(i.amount, currency)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {notes && (
+        <div>
+          <div className="mb-1 text-xs uppercase tracking-wider text-zinc-500">Notas</div>
+          <p className="whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">{notes}</p>
+        </div>
+      )}
     </div>
   );
 }

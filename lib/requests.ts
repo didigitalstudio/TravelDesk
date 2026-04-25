@@ -2,6 +2,29 @@ import type { Database } from "@/types/supabase";
 
 export type RequestStatus = Database["public"]["Enums"]["request_status"];
 export type ServiceType = Database["public"]["Enums"]["service_type"];
+export type Currency = Database["public"]["Enums"]["currency"];
+export type QuoteStatus = Database["public"]["Enums"]["quote_status"];
+
+export const CURRENCY_LABELS: Record<Currency, string> = {
+  USD: "USD",
+  ARS: "ARS",
+};
+
+export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
+  submitted: "Enviada",
+  withdrawn: "Retirada",
+  superseded: "Reemplazada",
+  accepted: "Aceptada",
+  rejected: "Rechazada",
+};
+
+export function formatMoney(amount: number, currency: Currency): string {
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
 
 export const SERVICE_LABELS: Record<ServiceType, string> = {
   flights: "Vuelos",
