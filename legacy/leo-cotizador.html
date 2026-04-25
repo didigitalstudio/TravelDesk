@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TravelDesk — Gestión de Cotizaciones y Reservas</title>
+<style>
+  :root {
+    --bg: #F8F9FA;
+    --surface: #FFFFFF;
+    --surface2: #E9ECEF;
+    --border: rgba(33,37,41,0.08);
+    --border2: rgba(33,37,41,0.15);
+    --text: #212529;
+    --text2: #495057;
+    --text3: #ADB5BD;
+    --accent: #155724; /* Verde oscuro para estados confirmados */
+    --accent-light: #D4EDDA;
+    --accent-mid: #28a745;
+    
+    --gold: #0056b3; /* Azul profesional para info */
+    --gold-light: #CDE4F9;
+    --warn: #856404; /* Amarillo oscuro para alertas neutras/pagos */
+    --warn-light: #FFF3CD;
+    
+    --danger: #8B2020;
+    --danger-light: #F5E4E4;
+    --info: #1A3D6B;
+    --info-light: #E3EBF5;
+    
+    --radius: 8px;
+    --radius-lg: 14px;
+    --shadow: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Arial, Helvetica, sans-serif; /* Cambio de fuente a Arial */
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* LAYOUT */
+  .app { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--text);
+    color: #F8F9FA;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+  }
+
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .sidebar-logo .brand {
+    font-family: Arial, Helvetica, sans-serif; /* Arial para el logo */
+    font-size: 20px;
+    color: #F8F9FA;
+    letter-spacing: -0.3px;
+    font-weight: bold;
+  }
+  .sidebar-logo .brand span { color: #A8C880; }
+  .sidebar-logo .role-badge {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: rgba(248,249,250,0.45);
+  }
+
+  .sidebar-nav { flex: 1; padding: 12px 0; }
+
+  .nav-section {
+    padding: 16px 20px 6px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.25);
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    cursor: pointer;
+    color: rgba(248,249,250,0.6);
+    font-size: 13.5px;
+    font-weight: 400;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+    position: relative;
+  }
+  .nav-item:hover { color: #F8F9FA; background: rgba(255,255,255,0.05); }
+  .nav-item.active {
+    color: #F8F9FA;
+    background: rgba(255,255,255,0.08);
+    border-left-color: #A8C880;
+    font-weight: 500;
+  }
+  .nav-item .icon { width: 16px; text-align: center; font-size: 14px; }
+  .nav-badge {
+    margin-left: auto;
+    background: #A8C880;
+    color: #212529;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 20px;
+    min-width: 18px;
+    text-align: center;
+  }
+
+  .sidebar-bottom {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .user-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .user-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #4A7C28;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #F8F9FA;
+    flex-shrink: 0;
+  }
+  .user-info .name { font-size: 13px; color: #F8F9FA; font-weight: 500; }
+  .user-info .email { font-size: 11px; color: rgba(248,249,250,0.4); }
+
+  /* MAIN */
+  .main {
+    flex: 1;
+    margin-left: 220px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .topbar-title {
+    font-family: Arial, Helvetica, sans-serif; /* Arial para títulos */
+    font-size: 20px;
+    color: var(--text);
+    letter-spacing: -0.3px;
+    font-weight: bold;
+  }
+
+  .topbar-actions { display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--gold);
+    color: #F8F9FA;
+  }
+  .btn-primary:hover { background: #004494; }
+  
+  .btn-success {
+      background: var(--accent);
+      color: #F8F9FA;
+  }
+  .btn-success:hover { background: #11441c; }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-outline:hover { background: var(--surface2); color: var(--text); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    padding: 6px 10px;
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+  .btn-danger-outline {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid rgba(139,32,32,0.25);
+  }
+  .btn-danger-outline:hover { background: var(--danger-light); }
+
+  .btn-sm { padding: 5px 12px; font-size: 12.5px; }
+
+  /* CONTENT */
+  .content { padding: 28px; flex: 1; }
+
+  /* STATS GRID */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card:hover { border-color: var(--border2); box-shadow: var(--shadow); }
+  .stat-card.active { border-color: currentColor; }
+
+  .stat-card.c-proceso { color: var(--info); }
+  .stat-card.c-proceso.active { background: var(--info-light); border-color: var(--info); }
+  .stat-card.c-pendiente { color: #6c757d; } /* Color neutro */
+  .stat-card.c-pendiente.active { background: #e2e3e5; border-color: #6c757d; }
+  .stat-card.c-rechazada { color: var(--danger); }
+  .stat-card.c-rechazada.active { background: var(--danger-light); border-color: var(--danger); }
+  .stat-card.c-reservado { color: var(--warn); } /* Amarillo para reservas */
+  .stat-card.c-reservado.active { background: var(--warn-light); border-color: var(--warn); }
+  .stat-card.c-cotizada { color: var(--gold); } /* Color info */
+  .stat-card.c-cotizada.active { background: var(--gold-light); border-color: var(--gold); }
+
+  .stat-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+  .stat-number {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 32px;
+    line-height: 1;
+    color: inherit;
+    font-weight: bold;
+  }
+  .stat-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+
+  /* TABLE SECTION */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .section-title {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 17px;
+    color: var(--text);
+    font-weight: bold;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .search-input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 7px 12px 7px 32px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    width: 220px;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+  .search-input:focus { border-color: var(--border2); }
+  .search-wrapper { position: relative; }
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text3);
+    font-size: 13px;
+    pointer-events: none;
+  }
+
+  select.filter-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 7px 28px 7px 12px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    color: var(--text2);
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236B6355'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+
+  /* QUOTES TABLE */
+  .quotes-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    background: var(--surface2);
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  tbody td {
+    padding: 12px 16px;
+    font-size: 13.5px;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .td-client { font-weight: 500; }
+  .td-dest { color: var(--text2); font-size: 13px; }
+  .td-date { color: var(--text3); font-size: 12.5px; }
+  .td-pax {
+    font-size: 12.5px;
+    color: var(--text2);
+  }
+
+  /* STATUS BADGES */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .badge-proceso { background: var(--info-light); color: var(--info); }
+  .badge-proceso .badge-dot { background: var(--info); }
+  .badge-pendiente { background: #e2e3e5; color: #6c757d; }
+  .badge-pendiente .badge-dot { background: #6c757d; }
+  .badge-cotizada { background: var(--gold-light); color: var(--gold); }
+  .badge-cotizada .badge-dot { background: var(--gold); }
+  
+  .badge-pago-pendiente { background: var(--danger-light); color: var(--danger); border: 1px solid rgba(139,32,32,0.2); }
+  .badge-pago-pendiente .badge-dot { background: var(--danger); }
+  
+  .badge-reservado { background: var(--warn-light); color: var(--warn); border: 1px solid rgba(133,100,4,0.2); }
+  .badge-reservado .badge-dot { background: var(--warn); }
+
+  .badge-confirmado-ok { background: var(--accent-light); color: var(--accent); border: 1px solid rgba(21,87,36,0.2); }
+  .badge-confirmado-ok .badge-dot { background: var(--accent); }
+
+  .badge-rechazada { background: #343a40; color: #F8F9FA; }
+  .badge-rechazada .badge-dot { background: #ADB5BD; }
+
+  .td-proveedores {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .prov-chip {
+    background: var(--surface2);
+    color: var(--text2);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+  .prov-chip.responded { background: var(--gold-light); color: var(--gold); border-color: transparent; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(33,37,41,0.5);
+    z-index: 200;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 680px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    overflow: hidden;
+    margin: auto;
+  }
+
+  .modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .modal-header h2 {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 20px;
+    font-weight: bold;
+  }
+  .modal-header p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+  .modal-body { padding: 24px; }
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background: var(--surface2);
+  }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-full { grid-column: 1 / -1; }
+
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 0.3px;
+  }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13.5px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus { border-color: var(--gold); }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+
+  .form-divider {
+    grid-column: 1 / -1;
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+  .form-section-label {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+
+  /* PAX BUILDER */
+  .pax-list { display: flex; flex-direction: column; gap: 8px; }
+  .pax-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .pax-row input {
+    flex: 1;
+    min-width: 0;
+  }
+  .pax-type-select { flex: 0 0 110px; }
+  .pax-remove {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 16px;
+    line-height: 1;
+    border-radius: 6px;
+    transition: all 0.1s;
+    flex-shrink: 0;
+  }
+  .pax-remove:hover { background: var(--danger-light); color: var(--danger); }
+
+  .add-pax-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--gold);
+    background: none;
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    cursor: pointer;
+    font-family: Arial, Helvetica, sans-serif;
+    margin-top: 6px;
+    transition: all 0.15s;
+  }
+  .add-pax-btn:hover { background: var(--gold-light); border-style: solid; }
+
+  /* PROVEEDOR CHECKBOXES */
+  .prov-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .prov-check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .prov-check-item:hover { border-color: var(--gold); }
+  .prov-check-item input[type=checkbox] { accent-color: var(--gold); }
+  .prov-check-item.checked { background: var(--gold-light); border-color: var(--gold); }
+  .prov-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .prov-email { font-size: 11px; color: var(--text3); }
+
+  /* DETAIL PANEL */
+  .detail-panel {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 520px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 150;
+    overflow-y: auto;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.05);
+  }
+  .detail-panel.open { display: block; }
+
+  .panel-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 10;
+  }
+  .panel-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .panel-title {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 18px;
+    font-weight: bold;
+  }
+  .panel-meta { font-size: 12.5px; color: var(--text2); }
+
+  .panel-body { padding: 20px 24px; }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .info-block label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text3);
+    display: block;
+    margin-bottom: 3px;
+  }
+  .info-block .val { font-size: 13.5px; color: var(--text); }
+
+  .section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+
+  .panel-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 12px;
+  }
+
+  /* COTIZACIONES DE PROVEEDORES */
+  .offer-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .offer-card.winner {
+    border-color: var(--accent-mid);
+    background: #E8F0DF;
+  }
+  .offer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .offer-prov-name { font-weight: 500; font-size: 13.5px; }
+  .offer-price {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 20px;
+    color: var(--text);
+    font-weight: bold;
+  }
+  .offer-details { font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .offer-actions { margin-top: 10px; display: flex; gap: 8px; }
+
+  .pending-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface2);
+    color: var(--text2);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  /* STATUS ACTIONS */
+  .status-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* REJECT MODAL */
+  .reject-reason-group { margin-top: 12px; }
+
+  /* NOTIFICATION TOAST */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: var(--text);
+    color: #F8F9FA;
+    padding: 12px 18px;
+    border-radius: var(--radius);
+    font-size: 13.5px;
+    font-weight: 500;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    max-width: 360px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    animation: slideUp 0.2s ease;
+  }
+  .toast.show { display: flex; }
+  @keyframes slideUp {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .toast-icon { font-size: 16px; }
+
+  /* PROVEEDOR VIEW */
+  .prov-topbar {
+    background: var(--text);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #F8F9FA;
+  }
+  .prov-brand {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 18px;
+    color: #F8F9FA;
+    font-weight: bold;
+  }
+  .prov-brand span { opacity: 0.6; font-size: 13px; font-family: Arial, Helvetica, sans-serif; margin-left: 10px; font-weight: normal; }
+
+  /* EMPTY */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .empty-state .icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  /* TABS */
+  .view-tabs {
+    display: flex;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 3px;
+    gap: 2px;
+  }
+  .view-tab {
+    padding: 6px 14px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text2);
+    border: none;
+    background: none;
+    transition: all 0.15s;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .view-tab.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow);
+  }
+
+  /* DETALLES PROVEEDOR */
+  .prov-calc-block {
+      grid-column: 1 / -1;
+      background-color: var(--surface2);
+      padding: 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+  }
+  .prov-calc-results {
+      grid-column: 1 / -1;
+      background-color: var(--gold-light);
+      padding: 12px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(0,86,179,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+  }
+  .prov-calc-total { font-weight: 600; color: var(--gold); }
+  .prov-calc-pp { font-weight: 600; color: var(--gold); font-size: 1.2em; }
+
+  /* LUJO TOUCHES */
+  .quote-id {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--text3);
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  
+  /* DOCUMENTACIÓN STYLES */
+  .pax-doc-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface2);
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      margin-bottom: 6px;
+  }
+  .file-badge {
+      font-size: 11px;
+      color: var(--accent);
+      background: var(--accent-light);
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+  }
+
+  /* RESPONSIVE helpers */
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="brand">Travel<span>Desk</span></div>
+      <div class="role-badge">Panel Administrador</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <div class="nav-item active" onclick="setView('dashboard')">
+        <span class="icon">◧</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="setView('quotes')">
+        <span class="icon">✦</span> Cotizaciones
+        <span class="nav-badge" id="badge-total">0</span>
+      </div>
+      <div class="nav-section">Estados</div>
+      <div class="nav-item" onclick="filterByStatus('cotizada')">
+        <span class="icon">◈</span> Cotizadas
+        <span class="nav-badge" id="badge-cotizada" style="background:#CDE4F9;color:#0056b3;">0</span> 
+      </div>
+      <div class="nav-item" onclick="filterByStatus('pago_pendiente')">
+          <span class="icon">💳</span> Pago Pendiente
+          <span class="nav-badge" id="badge-pago_pendiente" style="background:#F5E4E4;color:#8B2020;">0</span>
+        </div>
+      <div class="nav-item" onclick="filterByStatus('reservado')">
+        <span class="icon">◎</span> Reservadas
+        <span class="nav-badge" id="badge-reservado" style="background:#FFF3CD;color:#856404;">0</span> 
+      </div>
+      <div class="nav-item" onclick="filterByStatus('confirmado_ok')">
+        <span class="icon">◉</span> Confirmadas OK
+        <span class="nav-badge" id="badge-confirmado_ok" style="background:#D4EDDA;color:#155724;">0</span>
+      </div>
+      
+      <div class="nav-section">Historial</div>
+      <div class="nav-item" onclick="filterByStatus('pendiente')">
+          <span class="icon">◌</span> Pendientes
+          <span class="nav-badge" id="badge-pendiente" style="background:#e2e3e5;color:#6c757d;">0</span> 
+        </div>
+        <div class="nav-item" onclick="filterByStatus('proceso')">
+            <span class="icon">◌</span> En Proceso
+            <span class="nav-badge" id="badge-proceso" style="background:#E3EBF5;color:#1A3D6B;">0</span>
+          </div>
+      <div class="nav-item" onclick="filterByStatus('rechazada')">
+        <span class="icon">✕</span> Rechazadas
+        <span class="nav-badge" id="badge-rechazada" style="background:#343a40;color:#f8f9fa;">0</span>
+      </div>
+      <div class="nav-section">Config</div>
+      <div class="nav-item" onclick="setView('proveedores')">
+        <span class="icon">⊙</span> Proveedores
+      </div>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="user-chip">
+        <div class="user-avatar">L</div>
+        <div class="user-info">
+          <div class="name">Leo</div>
+          <div class="email">admin@traveldesk.com</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="prov-topbar hidden" id="prov-topbar" style="position:fixed;top:0;left:0;right:0;z-index:200;">
+    <div class="prov-brand">TravelDesk <span>Portal Proveedor</span></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="font-size:13px;opacity:0.7;" id="prov-name-display"></span>
+      <button class="btn btn-outline" style="color:#F8F9FA;border-color:rgba(255,255,255,0.3);" onclick="providerLogout()">Salir</button>
+    </div>
+  </div>
+
+  <main class="main" id="main-content">
+
+    <div id="view-dashboard">
+      <div class="topbar">
+        <div class="topbar-title">Dashboard</div>
+        <div class="topbar-actions">
+          <div class="view-tabs">
+            <button class="view-tab active" onclick="setViewTab(this,'admin')">Admin</button>
+            <button class="view-tab" onclick="setViewTab(this,'proveedor')">Vista Proveedor</button>
+          </div>
+          <button class="btn btn-primary" onclick="openNewQuote()">+ Nueva Solicitud</button>
+        </div>
+      </div>
+      <div class="content">
+
+        <div class="stats-grid">
+          <div class="stat-card c-cotizada" onclick="filterByStatus('cotizada')">
+            <div class="stat-label">Cotizadas</div>
+            <div class="stat-number" id="stat-cotizada">0</div>
+            <div class="stat-sub">Listas p/ presentar</div>
+          </div>
+          <div class="stat-card c-reservado" onclick="filterByStatus('reservado')">
+            <div class="stat-label">Reservadas</div>
+            <div class="stat-number" id="stat-reservado">0</div>
+            <div class="stat-sub">Esperando DNI/Pago</div>
+          </div>
+          <div class="stat-card c-confirmado_ok" onclick="filterByStatus('confirmado_ok')">
+            <div class="stat-label">Confirmadas OK</div>
+            <div class="stat-number" id="stat-confirmado_ok">0</div>
+            <div class="stat-sub">Listas para facturar</div>
+          </div>
+          <div class="stat-card c-pago_pendiente" onclick="filterByStatus('pago_pendiente')">
+              <div class="stat-label">Pago Solicitado</div>
+              <div class="stat-number" id="stat-pago_pendiente">0</div>
+              <div class="stat-sub">Esperando transfer.</div>
+            </div>
+          <div class="stat-card c-proceso" onclick="filterByStatus('proceso')">
+            <div class="stat-label">En proceso</div>
+            <div class="stat-number" id="stat-proceso">0</div>
+            <div class="stat-sub">Esperando cotiz.</div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <div class="section-title" id="table-section-title">Todas las Cotizaciones</div>
+          <div class="filter-row">
+            <div class="search-wrapper">
+              <span class="search-icon">⊘</span>
+              <input class="search-input" type="text" placeholder="Buscar cliente, destino..." id="search-input" oninput="renderTable()">
+            </div>
+            <select class="filter-select" id="status-filter" onchange="renderTable()">
+              <option value="">Todos los estados</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="proceso">En proceso</option>
+              <option value="cotizada">Cotizada</option>
+              <option value="pago_pendiente">Pago Solicitado</option>
+              <option value="reservado">Reservada</option>
+              <option value="confirmado_ok">Confirmada OK</option>
+              <option value="rechazada">Rechazada</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="quotes-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Destino/s</th>
+                <th>Fechas</th>
+                <th>Pax</th>
+                <th>Proveedores</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="quotes-tbody"></tbody>
+          </table>
+          <div id="empty-table" class="empty-state hidden">
+            <div class="icon">✦</div>
+            <p>No hay cotizaciones que coincidan con los filtros</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-proveedores" class="hidden">
+      <div class="topbar">
+        <div class="topbar-title">Proveedores</div>
+        <div class="topbar-actions">
+          <button class="btn btn-primary" onclick="openNewProvider()">+ Nuevo Proveedor</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="section-header" style="margin-bottom:16px;">
+          <div class="section-title">Proveedores registrados</div>
+        </div>
+        <div id="proveedores-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;"></div>
+      </div>
+    </div>
+
+    <div id="view-provider-portal" class="hidden" style="padding-top:60px;">
+      <div class="content">
+        <div id="provider-portal-content"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="detail-panel" id="detail-panel">
+  <div class="panel-header">
+    <div class="panel-header-top">
+      <div class="panel-title" id="panel-title">Cotización</div>
+      <button class="btn-ghost btn" onclick="closePanel()" style="font-size:18px;padding:4px 8px;">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="panel-badge"></span>
+      <span class="quote-id" id="panel-id"></span>
+    </div>
+  </div>
+  <div class="panel-body" id="panel-body"></div>
+</div>
+
+<div class="modal-overlay" id="modal-new-quote">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2>Nueva Solicitud de Cotización</h2>
+        <p>Completá los datos del viaje para enviar a los proveedores</p>
+      </div>
+      <button class="btn-ghost btn" onclick="closeModal('modal-new-quote')" style="font-size:18px;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label>Cliente / Nombre del grupo</label>
+          <input type="text" id="f-cliente" placeholder="Ej: Familia Rodríguez" />
+        </div>
+
+        <div class="form-divider"></div>
+        <div class="form-section-label">Destino y Fechas</div>
+
+        <div class="form-group form-full">
+          <label>Destino/s</label>
+          <input type="text" id="f-destinos" placeholder="Ej: Cancún, Miami — o múltiples destinos" />
+        </div>
+        <div class="form-group">
+          <label>Fecha tentativa desde</label>
+          <input type="date" id="f-fecha-desde" />
+        </div>
+        <div class="form-group">
+          <label>Fecha tentativa hasta</label>
+          <input type="date" id="f-fecha-hasta" />
+        </div>
+        <div class="form-group">
+          <label>Noches de viaje</label>
+          <input type="number" id="f-noches" placeholder="7" min="1" />
+        </div>
+        <div class="form-group">
+          <label>Equipaje incluido en vuelo</label>
+          <select id="f-equipaje">
+            <option value="solo_mano">Solo equipaje de mano</option>
+            <option value="mano_bodega_23">Mano + bodega 23kg</option>
+            <option value="mano_bodega_32">Mano + bodega 32kg</option>
+            <option value="2_piezas">2 piezas en bodega</option>
+            <option value="sin_restriccion">Sin restricción / Flexible</option>
+          </select>
+        </div>
+
+        <div class="form-divider"></div>
+        <div class="form-section-label">Pasajeros</div>
+
+        <div class="form-full">
+          <div class="pax-list" id="pax-list"></div>
+          <button class="add-pax-btn" onclick="addPax()">+ Agregar pasajero</button>
+        </div>
+
+        <div class="form-divider"></div>
+        <div class="form-section-label">Notas adicionales</div>
+
+        <div class="form-group form-full">
+          <label>Requerimientos especiales, preferencias, presupuesto estimado</label>
+          <textarea id="f-notas" placeholder="Ej: Prefieren hotel en zona céntrica. Presupuesto máx $3000 USD por persona..."></textarea>
+        </div>
+
+        <div class="form-divider"></div>
+        <div class="form-section-label">Enviar a proveedores</div>
+
+        <div class="form-full">
+          <div class="prov-grid" id="prov-selector"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-new-quote')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitNewQuote()">Crear Solicitud ✦</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-reject">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <div>
+        <h2>Rechazar Cotización</h2>
+        <p>Dejá un motivo para el historial</p>
+      </div>
+      <button class="btn-ghost btn" onclick="closeModal('modal-reject')" style="font-size:18px;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Motivo del rechazo</label>
+        <textarea id="reject-reason" placeholder="Ej: El cliente decidió no viajar. / Presupuesto no se ajusta..." style="min-height:100px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-reject')">Cancelar</button>
+      <button class="btn btn-danger-outline" onclick="confirmReject()">Confirmar Rechazo</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-provider-login">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <div>
+        <h2>Portal Proveedor</h2>
+        <p>Ingresá con tus credenciales</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Usuario / Email</label>
+        <input type="email" id="prov-login-email" placeholder="proveedor@email.com" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="prov-login-pass" placeholder="••••••••" />
+      </div>
+      <p style="font-size:11.5px;color:var(--text3);margin-top:10px;">Credenciales de demo: email de cualquier proveedor + contraseña: <strong>demo123</strong></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-provider-login')">Cancelar</button>
+      <button class="btn btn-primary" onclick="providerLogin()">Ingresar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-new-provider">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div>
+        <h2>Nuevo Proveedor</h2>
+        <p>Agregá un proveedor/mayorista al sistema</p>
+      </div>
+      <button class="btn-ghost btn" onclick="closeModal('modal-new-provider')" style="font-size:18px;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nombre del proveedor</label>
+          <input type="text" id="np-nombre" placeholder="Ej: Mayorista XYZ" />
+        </div>
+        <div class="form-group">
+          <label>Empresa / Agencia</label>
+          <input type="text" id="np-empresa" placeholder="Ej: XYZ Travel S.A." />
+        </div>
+        <div class="form-group form-full">
+          <label>Email (para notificaciones)</label>
+          <input type="email" id="np-email" placeholder="contacto@mayorista.com" />
+        </div>
+        <div class="form-group">
+          <label>Especialidad</label>
+          <input type="text" id="np-especialidad" placeholder="Ej: Caribe, Europa" />
+        </div>
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input type="text" id="np-tel" placeholder="+54 9 11 ..." />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-new-provider')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitNewProvider()">Agregar Proveedor</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-upload-quote">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <div>
+        <h2>Subir Cotización</h2>
+        <p id="upload-quote-subtitle">Completá los detalles de tu oferta</p>
+      </div>
+      <button class="btn-ghost btn" onclick="closeModal('modal-upload-quote')" style="font-size:18px;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        
+        <div class="prov-calc-block form-full">
+            <div class="form-group">
+              <label>Precio de: Vuelo (USD)</label>
+              <input type="number" id="uq-costo-vuelo" placeholder="0" min="0" oninput="calculateTotal()" />
+            </div>
+            <div class="form-group">
+              <label>Precio de: Hotel (USD)</label>
+              <input type="number" id="uq-costo-hotel" placeholder="0" min="0" oninput="calculateTotal()" />
+            </div>
+            <div class="form-group">
+              <label>Precio de: Transfer (USD)</label>
+              <input type="number" id="uq-costo-transfer" placeholder="0" min="0" oninput="calculateTotal()" />
+            </div>
+            <div class="form-group">
+              <label>Precio de: Gastos (USD)</label>
+              <input type="number" id="uq-costo-gastos" placeholder="0" min="0" oninput="calculateTotal()" />
+            </div>
+            
+            <div class="prov-calc-results">
+                <div class="prov-calc-total">Precio Total: <strong id="uq-total-display">$0.00</strong></div>
+                <div class="prov-calc-pp">USD <strong id="uq-pp-display">0.00</strong> p/persona</div>
+                <input type="hidden" id="uq-precio" value="0">
+                <input type="hidden" id="uq-precio-pp" value="0">
+            </div>
+        </div>
+
+        <div class="form-divider"></div>
+
+        <div class="form-group form-full">
+          <label>Detalles de Vuelos (aerolínea, escalas, horarios)</label>
+          <input type="text" id="uq-vuelos" placeholder="Ej: Latam directo, salida 08:00hs" />
+        </div>
+        <div class="form-group form-full">
+          <label>Hotel/Alojamiento</label>
+          <input type="text" id="uq-hotel" placeholder="Ej: Hotel Grand Coral Beach 4★ — todo incluido" />
+        </div>
+        <div class="form-group">
+          <label>Equipaje incluido</label>
+          <select id="uq-equipaje">
+            <option value="solo_mano">Solo mano</option>
+            <option value="mano_23kg">Mano + 23kg</option>
+            <option value="mano_32kg">Mano + 32kg</option>
+            <option value="2_piezas">2 piezas</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Validez de la oferta</label>
+          <input type="date" id="uq-validez" />
+        </div>
+        <div class="form-group form-full">
+          <label>Incluye / Detalles adicionales</label>
+          <textarea id="uq-detalles" placeholder="Ej: Seguro de viaje, excursión incluida..."></textarea>
+        </div>
+        <div class="form-group form-full">
+          <label>Notas internas (solo para el administrador)</label>
+          <textarea id="uq-notas" style="min-height:60px;" placeholder="Observaciones, condiciones especiales..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-upload-quote')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitProviderQuote()">Enviar Cotización ✦</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-upload-liquidation">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <div>
+        <h2>Confirmar Reserva online</h2>
+        <p>Adjuntá la liquidación final para el admin</p>
+      </div>
+      <button class="btn-ghost btn" onclick="closeModal('modal-upload-liquidation')" style="font-size:18px;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Archivo de Liquidación / Confirmación (PDF o Imagen)</label>
+        <input type="file" id="uq-liquidation-file" accept="image/*,.pdf" />
+      </div>
+      <p style="font-size:12px;color:var(--text3);margin-top:10px;">Al confirmar, la cotización pasará a estado <strong>Reservado</strong> y el administrador podrá dar el OK final para facturar.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-upload-liquidation')">Cancelar</button>
+      <button class="btn btn-success" onclick="submitProviderLiquidation()">Confirmar y Marcar Reservado ✓</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toast-icon">✓</span>
+  <span id="toast-msg">Acción completada</span>
+</div>
+
+<input type="file" id="admin-pax-file-input" class="hidden" accept="image/*,.pdf" onchange="handlePaxFileUpload(this)">
+
+<script>
+// ===== STATE =====
+let quotes = JSON.parse(localStorage.getItem('td_quotes') || '[]');
+let providers = JSON.parse(localStorage.getItem('td_providers') || '[]');
+let currentView = 'dashboard';
+let currentFilter = '';
+let currentQuoteId = null;
+let rejectTargetId = null;
+let uploadTargetId = null;
+let liquidationTargetId = null;
+let currentProvider = null;
+let paxCount = 0;
+let uploadQuotePax = 1; 
+
+let currentUploadingPaxId = null; // Para saber qué pax está subiendo DNI
+
+// SEED DATA
+if (providers.length === 0) {
+  providers = [
+    { id: 'prov1', nombre: 'Carlos Méndez', empresa: 'Mundo Travel', email: 'carlos@mundotravel.com', especialidad: 'Caribe, México', tel: '+54 9 11 5555-0001' },
+    { id: 'prov2', nombre: 'Ana Soto', empresa: 'Viajes Premium', email: 'ana@viajespremium.com', especialidad: 'Europa, Cruceros', tel: '+54 9 351 5555-0002' },
+    { id: 'prov3', nombre: 'Martín López', empresa: 'Sky Tours', email: 'martin@skytours.com', especialidad: 'USA, Caribe', tel: '+54 9 11 5555-0003' },
+  ];
+  saveProviders();
+}
+
+if (quotes.length === 0) {
+  quotes = [
+    {
+      id: 'QT-0001', cliente: 'Familia Rodríguez', destinos: 'Cancún, México',
+      fechaDesde: '2025-07-10', fechaHasta: '2025-07-20', noches: 10,
+      equipaje: 'mano_23kg', pax: [{id:'p1', nombre:'Ana Rodríguez',edad:42,tipo:'Adulto'},{id:'p2', nombre:'Marcos Rodríguez',edad:45,tipo:'Adulto'},{id:'p3', nombre:'Sofía Rodríguez',edad:14,tipo:'Menor'}],
+      notas: 'Prefieren todo incluido.',
+      proveedoresAsignados: ['prov1','prov3'],
+      estado: 'cotizada',
+      creadoEn: new Date(Date.now()-5*86400000).toISOString(),
+      ofertas: [
+        { provId: 'prov1', precio: 3800, precioPP: 1267, costoVuelo:1800, costoHotel:1500, costoTransfer:300, costoGastos:200, vuelos: 'Latam directo', hotel: 'Dreams Cancún 5★', equipaje: 'mano_23kg', validez: '2025-04-30', detalles: 'Todo Incluido.', notas: '', ganadora: false },
+      ]
+    },
+    {
+      id: 'QT-0002', cliente: 'Martina García', destinos: 'París',
+      fechaDesde: '2025-09-01', fechaHasta: '2025-09-14', noches: 13,
+      equipaje: 'mano_23kg', pax: [{id:'p4', nombre:'Martina García',edad:29,tipo:'Adulto'}],
+      notas: 'Viaje de cumpleaños.',
+      proveedoresAsignados: ['prov2'],
+      estado: 'proceso',
+      creadoEn: new Date(Date.now()-2*86400000).toISOString(),
+      ofertas: []
+    }
+  ];
+  saveQuotes();
+}
+
+function saveQuotes() { localStorage.setItem('td_quotes', JSON.stringify(quotes)); }
+function saveProviders() { localStorage.setItem('td_providers', JSON.stringify(providers)); }
+
+// ===== NAVIGATION =====
+function setView(v) {
+  currentView = v;
+  document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
+  document.getElementById('view-' + v).classList.remove('hidden');
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  if (v === 'dashboard') { renderTable(); renderStats(); }
+  if (v === 'proveedores') renderProvidersGrid();
+  closePanel();
+}
+
+function filterByStatus(status) {
+  currentFilter = status;
+  document.getElementById('status-filter').value = status;
+  setView('dashboard');
+  renderTable();
+  const titles = { pendiente: 'Pendientes', proceso: 'En Proceso', cotizada: 'Cotizadas', pago_pendiente: 'Pago Solicitado', reservado: 'Reservadas (online)', confirmado_ok: 'Confirmadas OK (p/ facturar)', rechazada: 'Rechazadas' };
+  document.getElementById('table-section-title').textContent = titles[status] || 'Todas las Cotizaciones';
+}
+
+function setViewTab(btn, mode) {
+  document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (mode === 'proveedor') openModal('modal-provider-login');
+}
+
+// ===== RENDER =====
+function renderStats() {
+  const counts = { pendiente: 0, proceso: 0, cotizada: 0, pago_pendiente: 0, reservado: 0, confirmado_ok: 0, rechazada: 0 };
+  quotes.forEach(q => { if (counts[q.estado] !== undefined) counts[q.estado]++; });
+  Object.keys(counts).forEach(k => {
+    document.getElementById('stat-' + k).textContent = counts[k];
+    document.getElementById('badge-' + k).textContent = counts[k];
+  });
+  document.getElementById('badge-total').textContent = quotes.length;
+}
+
+function renderTable() {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const statusF = document.getElementById('status-filter').value;
+  let filtered = quotes.filter(q => {
+    const matchStatus = !statusF || q.estado === statusF;
+    const matchSearch = !search || q.cliente.toLowerCase().includes(search) || q.destinos.toLowerCase().includes(search) || q.id.toLowerCase().includes(search);
+    return matchStatus && matchSearch;
+  });
+
+  const tbody = document.getElementById('quotes-tbody');
+  const empty = document.getElementById('empty-table');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  tbody.innerHTML = filtered.map(q => {
+    const paxSummary = `${q.pax.length} pax`;
+    const provsHtml = q.proveedoresAsignados.map(pid => {
+      const p = providers.find(x => x.id === pid);
+      const responded = q.ofertas && q.ofertas.some(o => o.provId === pid);
+      return `<span class="prov-chip ${responded ? 'responded' : ''}">${p ? p.nombre.split(' ')[0] : pid}</span>`;
+    }).join('');
+
+    return `<tr onclick="openDetail('${q.id}')">
+      <td><span class="quote-id">${q.id}</span></td>
+      <td class="td-client">${q.cliente}</td>
+      <td class="td-dest">${q.destinos}</td>
+      <td class="td-date">${formatDate(q.fechaDesde)} → ${formatDate(q.fechaHasta)}</td>
+      <td class="td-pax">${paxSummary}</td>
+      <td><div class="td-proveedores">${provsHtml}</div></td>
+      <td>${badgeHtml(q.estado)}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openDetail('${q.id}')">Ver →</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function badgeHtml(estado) {
+  const map = {
+    pendiente: ['badge-pendiente', 'Pendiente'],
+    proceso: ['badge-proceso', 'En proceso'],
+    cotizada: ['badge-cotizada', 'Cotizada'],
+    pago_pendiente: ['badge-pago-pendiente', 'Pago Solicitado'],
+    reservado: ['badge-reservado', 'Reservado'],
+    confirmado_ok: ['badge-confirmado-ok', 'Confirmado OK'],
+    rechazada: ['badge-rechazada', 'Rechazada'],
+  };
+  const [cls, label] = map[estado] || ['', estado];
+  return `<span class="badge ${cls}"><span class="badge-dot"></span>${label}</span>`;
+}
+
+// ===== DETAIL PANEL =====
+function openDetail(id) {
+  const q = quotes.find(x => x.id === id);
+  if (!q) return;
+  currentQuoteId = id;
+
+  document.getElementById('panel-title').textContent = q.cliente;
+  document.getElementById('panel-badge').innerHTML = badgeHtml(q.estado);
+  document.getElementById('panel-id').textContent = q.id;
+
+  const equipajeMap = { solo_mano:'Solo mano', mano_23kg:'Mano + 23kg', mano_32kg:'Mano + 32kg', mano_bodega_23:'Mano + 23kg', mano_bodega_32:'Mano + 32kg', '2_piezas':'2 piezas', sin_restriccion:'Flexible' };
+  
+  // Render Pax con DNI
+  const paxHtml = q.pax.map(p => {
+      const tieneDni = p.dniFile ? true : false;
+      return `
+      <div class="pax-doc-row">
+          <span style="font-size:13px; font-weight:500;">${p.nombre} (${p.tipo})</span>
+          ${tieneDni ? 
+              `<span class="file-badge">✓ DNI/Pasaporte adjunto</span>` : 
+              `<button class="btn btn-outline btn-sm" onclick="openPaxFileUpload('${p.id}')">+ Adjuntar DNI/Pasaporte</button>`
+          }
+      </div>`;
+  }).join('');
+
+  // Render Ofertas
+  let ofertasHtml = '';
+  let offerWinnerIndex = -1;
+  if (q.ofertas && q.ofertas.length > 0) {
+    offerWinnerIndex = q.ofertas.findIndex(o => o.ganadora);
+    ofertasHtml = q.ofertas.map((o, i) => {
+      const p = providers.find(x => x.id === o.provId);
+      return `<div class="offer-card ${o.ganadora ? 'winner' : ''}">
+        ${o.ganadora ? `<div style="font-size:11px; color:var(--accent); font-weight:600; margin-bottom:8px;">★ OFERTA GANADORA</div>` : ''}
+        <div class="offer-header">
+          <span class="offer-prov-name">${p ? p.nombre : o.provId}</span>
+          <span class="offer-price">USD ${o.precio.toLocaleString()}</span>
