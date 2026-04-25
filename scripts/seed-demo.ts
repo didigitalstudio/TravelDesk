@@ -42,23 +42,29 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
 
 const AGENCY_EMAIL = "agencia-demo@traveldesk.test";
 const OPERATOR_EMAIL = "operador-demo@traveldesk.test";
+const AGENCY_PASSWORD = "DemoAgencia2026";
+const OPERATOR_PASSWORD = "DemoOperador2026";
 const AGENCY_NAME = "Agencia Demo Pública";
 const AGENCY_SLUG = "agencia-demo-publica";
 const OPERATOR_NAME = "Operador Demo Público";
 const OPERATOR_SLUG = "operador-demo-publico";
 
-async function ensureUser(email: string): Promise<string> {
-  // Busca por listUsers (paginado) con filtro de email.
+async function ensureUserWithPassword(email: string, password: string): Promise<string> {
   const { data: existing, error: lookupErr } = await admin.auth.admin.listUsers({
     page: 1,
     perPage: 200,
   });
   if (lookupErr) throw lookupErr;
   const found = existing.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-  if (found) return found.id;
+  if (found) {
+    // Update password en cada corrida — idempotente, mantiene credenciales documentadas.
+    await admin.auth.admin.updateUserById(found.id, { password });
+    return found.id;
+  }
 
   const { data, error } = await admin.auth.admin.createUser({
     email,
+    password,
     email_confirm: true,
   });
   if (error || !data.user) throw error ?? new Error("createUser failed");
@@ -117,24 +123,10 @@ async function ensureLink(agencyId: string, operatorId: string) {
     .upsert({ agency_id: agencyId, operator_id: operatorId }, { onConflict: "agency_id,operator_id" });
 }
 
-async function generateMagicLink(email: string): Promise<string> {
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-    options: {
-      redirectTo: `${SITE_URL}/auth/callback`,
-    },
-  });
-  if (error || !data.properties?.action_link) {
-    throw error ?? new Error("generateLink failed");
-  }
-  return data.properties.action_link;
-}
-
 async function main() {
-  console.log("Ensuring demo users…");
-  const agencyUserId = await ensureUser(AGENCY_EMAIL);
-  const operatorUserId = await ensureUser(OPERATOR_EMAIL);
+  console.log("Ensuring demo users (with passwords)…");
+  const agencyUserId = await ensureUserWithPassword(AGENCY_EMAIL, AGENCY_PASSWORD);
+  const operatorUserId = await ensureUserWithPassword(OPERATOR_EMAIL, OPERATOR_PASSWORD);
 
   console.log("Ensuring tenants…");
   const agencyId = await ensureAgency(AGENCY_NAME, AGENCY_SLUG);
@@ -147,25 +139,20 @@ async function main() {
   console.log("Linking agency ↔ operator…");
   await ensureLink(agencyId, operatorId);
 
-  console.log("Generating magic links (no email sent)…");
-  const agencyLink = await generateMagicLink(AGENCY_EMAIL);
-  const operatorLink = await generateMagicLink(OPERATOR_EMAIL);
-
   console.log("\n========================================");
-  console.log("DEMO READY");
+  console.log("DEMO READY — credenciales");
   console.log("========================================");
-  console.log(`Site URL: ${SITE_URL}`);
+  console.log(`Site URL: ${SITE_URL}/login`);
   console.log("");
   console.log(`AGENCIA → ${AGENCY_NAME}`);
-  console.log(`  email:  ${AGENCY_EMAIL}`);
-  console.log(`  login:  ${agencyLink}`);
+  console.log(`  email:    ${AGENCY_EMAIL}`);
+  console.log(`  password: ${AGENCY_PASSWORD}`);
   console.log("");
   console.log(`OPERADOR → ${OPERATOR_NAME}`);
-  console.log(`  email:  ${OPERATOR_EMAIL}`);
-  console.log(`  login:  ${operatorLink}`);
+  console.log(`  email:    ${OPERATOR_EMAIL}`);
+  console.log(`  password: ${OPERATOR_PASSWORD}`);
   console.log("========================================");
-  console.log("Tip: abrí cada link en una ventana privada distinta para tener");
-  console.log("ambas sesiones simultáneamente.");
+  console.log("Tip: ventana privada distinta para cada cuenta así ves ambas sesiones.");
 }
 
 main().catch((err) => {

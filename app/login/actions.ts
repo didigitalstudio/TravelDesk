@@ -1,10 +1,17 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export type LoginState = {
   status: "idle" | "sent" | "error";
+  message?: string;
+  email?: string;
+};
+
+export type PasswordLoginState = {
+  status: "idle" | "error";
   message?: string;
   email?: string;
 };
@@ -41,4 +48,25 @@ export async function requestMagicLink(
   }
 
   return { status: "sent", email };
+}
+
+export async function signInWithPassword(
+  _prev: PasswordLoginState,
+  formData: FormData,
+): Promise<PasswordLoginState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const next = String(formData.get("next") ?? "").trim();
+
+  if (!email || !password) {
+    return { status: "error", message: "Ingresá email y contraseña.", email };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    return { status: "error", message: error.message, email };
+  }
+
+  redirect(next.startsWith("/") ? next : "/");
 }
