@@ -127,12 +127,18 @@ legacy/leo-cotizador.html    # HTML standalone original. Conservar hasta confirm
 - **`quote_request_dispatches`** (unique `quote_request_id, operator_id`): a qué operadores se envió y cuándo.
 - **`quote_request_status_history`**: `from_status`, `to_status`, `changed_by`, `changed_at`, `notes`.
 
+### Cotizaciones
+- **`quotes`**: `quote_request_id`, `operator_id`, `status` (submitted/withdrawn/superseded/accepted/rejected), `total_amount`, `currency`, `exchange_rate_usd_ars` (snapshot del MEP cuando currency=ARS), `payment_terms`, `valid_until`, `notes`, `submitted_by`, timestamps. Unique parcial sobre `(quote_request_id, operator_id) where status = 'submitted'`.
+- **`quote_items`**: `quote_id`, `sort_order`, `description`, `amount`. Cascade delete con la quote.
+
 ### Enums
 - `member_role`: owner, admin, member
 - `invitation_kind`: agency_member, operator_member, operator_link
 - `invitation_status`: pending, accepted, revoked, expired
 - `request_status`: draft, sent, quoted, partially_accepted, accepted, reserved, docs_uploaded, issued, payment_pending, closed, cancelled
 - `service_type`: flights, hotel, transfers, excursions, package, cruise, insurance, other
+- `currency`: USD, ARS
+- `quote_status`: submitted, withdrawn, superseded, accepted, rejected
 
 ### RLS
 Todas las tablas tienen RLS habilitado. Helpers `security definer` con `set search_path = public` para evitar recursión:
@@ -151,6 +157,8 @@ Todas las tablas tienen RLS habilitado. Helpers `security definer` con `set sear
 - `create_quote_request(agency_id, client_name, destination, ...)` → uuid; genera `code` = `TD-NNNN`
 - `send_quote_request(request_id, operator_ids[])` → valida que TODOS los operators estén vinculados a la agencia, inserta dispatches con upsert, cambia status `draft` → `sent`
 - `cancel_quote_request(request_id, notes default null)`
+- `submit_quote(request_id, total_amount, currency, payment_terms, valid_until, notes, exchange_rate_usd_ars, items jsonb)` → uuid. Resuelve operator_id desde dispatches + operator_members del user actual. Marca quote previa del mismo operador como `superseded` (reemplazo automático). Si `request.status = sent`, transiciona a `quoted`.
+- `withdraw_quote(quote_id)` → estado `withdrawn`, sólo si la quote está `submitted`.
 
 ## Auth
 
@@ -190,14 +198,10 @@ Migración `add_invitation_preview` con RPCs `get_invitation_preview`, `pending_
 ### Iteración 4 — Solicitudes de cotización (núcleo)
 Migración `quote_requests` + `quote_requests_rpc_defaults`. Schema `quote_requests`, `quote_request_dispatches`, `quote_request_status_history`. Enums `request_status` y `service_type`. RPCs `create_quote_request`, `send_quote_request`, `cancel_quote_request`. UI lado agencia (lista, form de creación con selección de operadores, expediente con historial, dispatch panel, cancelar) y lado operador (lista, detalle).
 
-## Estado: iteraciones pendientes
-
 ### Iteración 5 — Cotización del operador
-- Schema: `quotes` (precio total, currency, condiciones de pago, validez, status), `quote_items` (para aceptación parcial: descripción, monto, currency).
-- RPCs: `submit_quote`, `withdraw_quote`.
-- UI lado operador: form de cotización en `/operator/requests/[id]/quote`. Validity date, payment terms (texto libre o enum corto), items.
-- UI lado agencia: ver cotizaciones recibidas en el expediente de la solicitud (cards comparables si vienen de varios operadores).
-- Estado de la solicitud pasa a `quoted` cuando llega la primera cotización.
+Migración `quotes`. Schema `quotes` (status, total_amount, currency USD/ARS, exchange_rate_usd_ars como snapshot del MEP, payment_terms, valid_until, notes) + `quote_items` (sort_order, description, amount). Enums `currency` (USD/ARS) y `quote_status` (submitted/withdrawn/superseded/accepted/rejected). RLS para que ambos lados (agencia de la request, operador miembro del operator) lean. Unique parcial sobre `(request, operator)` cuando status = submitted, complementado con supersede automático en `submit_quote`. RPCs `submit_quote` (recibe items como jsonb, resuelve operator_id desde dispatch + membership) y `withdraw_quote`. Helper `lib/exchange-rate.ts` con dolarapi MEP (revalidate 15m, fallback a null si la API falla). UI operador: cotización activa, form con switch USD/ARS, MEP autollenado pero editable, ítems dinámicos, conversión visible (USD→ARS al MEP, ARS→USD al TC ingresado), reemplazo automático de cotización activa, retiro. UI agencia: cards comparables por operador con total, TC, validez (con flag de vencida), pago, ítems y notas. Transición `sent → quoted` al llegar la primera cotización.
+
+## Estado: iteraciones pendientes
 
 ### Iteración 6 — Aceptación (total / parcial)
 - Schema: `quote_acceptances` (qué items aceptó la agencia), o flag `accepted` por item.
