@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          request_count: number
           slug: string
           updated_at: string
         }
@@ -30,6 +31,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          request_count?: number
           slug: string
           updated_at?: string
         }
@@ -39,6 +41,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          request_count?: number
           slug?: string
           updated_at?: string
         }
@@ -228,12 +231,164 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_request_dispatches: {
+        Row: {
+          id: string
+          operator_id: string
+          quote_request_id: string
+          sent_at: string
+        }
+        Insert: {
+          id?: string
+          operator_id: string
+          quote_request_id: string
+          sent_at?: string
+        }
+        Update: {
+          id?: string
+          operator_id?: string
+          quote_request_id?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_request_dispatches_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_request_dispatches_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_request_status_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          from_status: Database["public"]["Enums"]["request_status"] | null
+          id: string
+          notes: string | null
+          quote_request_id: string
+          to_status: Database["public"]["Enums"]["request_status"]
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          from_status?: Database["public"]["Enums"]["request_status"] | null
+          id?: string
+          notes?: string | null
+          quote_request_id: string
+          to_status: Database["public"]["Enums"]["request_status"]
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          from_status?: Database["public"]["Enums"]["request_status"] | null
+          id?: string
+          notes?: string | null
+          quote_request_id?: string
+          to_status?: Database["public"]["Enums"]["request_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_request_status_history_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_requests: {
+        Row: {
+          agency_id: string
+          client_email: string | null
+          client_name: string
+          client_phone: string | null
+          code: string
+          created_at: string
+          created_by: string | null
+          departure_date: string | null
+          destination: string
+          flexible_dates: boolean
+          id: string
+          notes: string | null
+          pax_adults: number
+          pax_children: number
+          pax_infants: number
+          return_date: string | null
+          services: Database["public"]["Enums"]["service_type"][]
+          status: Database["public"]["Enums"]["request_status"]
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          client_email?: string | null
+          client_name: string
+          client_phone?: string | null
+          code: string
+          created_at?: string
+          created_by?: string | null
+          departure_date?: string | null
+          destination: string
+          flexible_dates?: boolean
+          id?: string
+          notes?: string | null
+          pax_adults?: number
+          pax_children?: number
+          pax_infants?: number
+          return_date?: string | null
+          services?: Database["public"]["Enums"]["service_type"][]
+          status?: Database["public"]["Enums"]["request_status"]
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          client_email?: string | null
+          client_name?: string
+          client_phone?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          departure_date?: string | null
+          destination?: string
+          flexible_dates?: boolean
+          id?: string
+          notes?: string | null
+          pax_adults?: number
+          pax_children?: number
+          pax_infants?: number
+          return_date?: string | null
+          services?: Database["public"]["Enums"]["service_type"][]
+          status?: Database["public"]["Enums"]["request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_requests_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       accept_invitation: { Args: { p_token: string }; Returns: Json }
+      cancel_quote_request: {
+        Args: { p_notes?: string; p_request_id: string }
+        Returns: undefined
+      }
       create_agency: {
         Args: { p_name: string; p_slug: string }
         Returns: string
@@ -249,6 +404,24 @@ export type Database = {
           token: string
         }[]
       }
+      create_quote_request: {
+        Args: {
+          p_agency_id: string
+          p_client_email?: string
+          p_client_name: string
+          p_client_phone?: string
+          p_departure_date?: string
+          p_destination: string
+          p_flexible_dates?: boolean
+          p_notes?: string
+          p_pax_adults?: number
+          p_pax_children?: number
+          p_pax_infants?: number
+          p_return_date?: string
+          p_services?: Database["public"]["Enums"]["service_type"][]
+        }
+        Returns: string
+      }
       get_invitation_preview: {
         Args: { p_token: string }
         Returns: {
@@ -263,6 +436,10 @@ export type Database = {
       is_agency_admin: { Args: { p_agency_id: string }; Returns: boolean }
       is_agency_member: { Args: { p_agency_id: string }; Returns: boolean }
       is_operator_admin: { Args: { p_operator_id: string }; Returns: boolean }
+      is_operator_dispatched_to_request: {
+        Args: { p_request_id: string }
+        Returns: boolean
+      }
       is_operator_member: { Args: { p_operator_id: string }; Returns: boolean }
       pending_invitations_for_email: {
         Args: { p_email: string }
@@ -281,11 +458,36 @@ export type Database = {
         Args: { p_invitation_id: string }
         Returns: undefined
       }
+      send_quote_request: {
+        Args: { p_operator_ids: string[]; p_request_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       invitation_kind: "agency_member" | "operator_member" | "operator_link"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
       member_role: "owner" | "admin" | "member"
+      request_status:
+        | "draft"
+        | "sent"
+        | "quoted"
+        | "partially_accepted"
+        | "accepted"
+        | "reserved"
+        | "docs_uploaded"
+        | "issued"
+        | "payment_pending"
+        | "closed"
+        | "cancelled"
+      service_type:
+        | "flights"
+        | "hotel"
+        | "transfers"
+        | "excursions"
+        | "package"
+        | "cruise"
+        | "insurance"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -416,6 +618,29 @@ export const Constants = {
       invitation_kind: ["agency_member", "operator_member", "operator_link"],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
       member_role: ["owner", "admin", "member"],
+      request_status: [
+        "draft",
+        "sent",
+        "quoted",
+        "partially_accepted",
+        "accepted",
+        "reserved",
+        "docs_uploaded",
+        "issued",
+        "payment_pending",
+        "closed",
+        "cancelled",
+      ],
+      service_type: [
+        "flights",
+        "hotel",
+        "transfers",
+        "excursions",
+        "package",
+        "cruise",
+        "insurance",
+        "other",
+      ],
     },
   },
 } as const

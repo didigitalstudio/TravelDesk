@@ -1,0 +1,98 @@
+import type { Database } from "@/types/supabase";
+
+export type RequestStatus = Database["public"]["Enums"]["request_status"];
+export type ServiceType = Database["public"]["Enums"]["service_type"];
+
+export const SERVICE_LABELS: Record<ServiceType, string> = {
+  flights: "Vuelos",
+  hotel: "Hotel",
+  transfers: "Transfers",
+  excursions: "Excursiones",
+  package: "Paquete completo",
+  cruise: "Crucero",
+  insurance: "Asistencia / Seguro",
+  other: "Otro",
+};
+
+export const SERVICE_OPTIONS: ServiceType[] = [
+  "flights",
+  "hotel",
+  "transfers",
+  "excursions",
+  "package",
+  "cruise",
+  "insurance",
+  "other",
+];
+
+export const STATUS_LABELS: Record<RequestStatus, string> = {
+  draft: "Borrador",
+  sent: "Enviada",
+  quoted: "Cotizada",
+  partially_accepted: "Aceptada parcial",
+  accepted: "Aceptada",
+  reserved: "Reservada",
+  docs_uploaded: "Docs cargados",
+  issued: "Emitida",
+  payment_pending: "Pago pendiente",
+  closed: "Cerrada",
+  cancelled: "Cancelada",
+};
+
+export const STATUS_TONES: Record<
+  RequestStatus,
+  "neutral" | "info" | "warn" | "ok" | "danger"
+> = {
+  draft: "neutral",
+  sent: "info",
+  quoted: "info",
+  partially_accepted: "warn",
+  accepted: "ok",
+  reserved: "ok",
+  docs_uploaded: "ok",
+  issued: "ok",
+  payment_pending: "warn",
+  closed: "neutral",
+  cancelled: "danger",
+};
+
+export function statusBadgeClasses(status: RequestStatus): string {
+  switch (STATUS_TONES[status]) {
+    case "ok":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/40";
+    case "warn":
+      return "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900/40";
+    case "danger":
+      return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/40";
+    case "info":
+      return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/40";
+    default:
+      return "bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700";
+  }
+}
+
+export function totalPax(adults: number, children: number, infants: number): number {
+  return adults + children + infants;
+}
+
+export function paxBreakdown(adults: number, children: number, infants: number): string {
+  const parts: string[] = [];
+  if (adults) parts.push(`${adults} adulto${adults === 1 ? "" : "s"}`);
+  if (children) parts.push(`${children} niño${children === 1 ? "" : "s"}`);
+  if (infants) parts.push(`${infants} infante${infants === 1 ? "" : "s"}`);
+  return parts.length ? parts.join(" · ") : "—";
+}
+
+export function formatDateRange(
+  from: string | null,
+  to: string | null,
+  flexible: boolean,
+): string {
+  if (flexible && !from && !to) return "Fechas flexibles";
+  const f = from ? new Date(from).toLocaleDateString("es-AR") : "—";
+  const t = to ? new Date(to).toLocaleDateString("es-AR") : "—";
+  if (from && to) return `${f} → ${t}${flexible ? " (flex)" : ""}`;
+  if (from) return `${f}${flexible ? " (flex)" : ""}`;
+  if (to) return `→ ${t}${flexible ? " (flex)" : ""}`;
+  return flexible ? "Fechas flexibles" : "—";
+}

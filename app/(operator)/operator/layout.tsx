@@ -26,6 +26,12 @@ export default async function OperatorLayout({ children }: { children: React.Rea
               <Link href="/operator" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Inicio
               </Link>
+              <Link href="/operator/requests" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+                Solicitudes
+              </Link>
+              <Link href="/operator/agencies" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+                Agencias
+              </Link>
               <span className="text-zinc-300 dark:text-zinc-700">·</span>
               <span className="text-xs uppercase tracking-wider text-zinc-400">
                 Portal Operador

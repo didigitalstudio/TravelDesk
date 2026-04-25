@@ -20,8 +20,8 @@ export default async function AgencyHome() {
         <Card
           title="Solicitudes"
           description="Cargá un nuevo pedido de cotización."
-          cta="Próximamente"
-          disabled
+          cta="Gestionar"
+          href="/agency/requests"
         />
         <Card
           title="Operadores"

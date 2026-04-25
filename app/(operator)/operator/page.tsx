@@ -42,8 +42,8 @@ export default async function OperatorHome() {
         <Card
           title="Solicitudes recibidas"
           description="Cotizá las solicitudes que te mandan las agencias."
-          cta="Próximamente"
-          disabled
+          cta="Ver"
+          href="/operator/requests"
         />
         <Card
           title="Mis agencias"
