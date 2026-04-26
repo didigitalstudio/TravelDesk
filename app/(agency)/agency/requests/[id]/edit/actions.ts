@@ -1,10 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { SERVICE_OPTIONS, type ServiceType } from "@/lib/requests";
-import type { RequestFormState } from "../_components/request-form";
+import type { RequestFormState } from "../../_components/request-form";
 
 function parseInt0(v: FormDataEntryValue | null): number {
   const n = Number(String(v ?? "").trim());
@@ -16,13 +17,16 @@ function parseServices(formData: FormData): ServiceType[] {
   return raw.filter((s): s is ServiceType => SERVICE_OPTIONS.includes(s as ServiceType));
 }
 
-export async function createQuoteRequest(
+export async function updateQuoteRequest(
   _prev: RequestFormState,
   formData: FormData,
 ): Promise<RequestFormState> {
+  const requestId = String(formData.get("request_id") ?? "").trim();
+  if (!requestId) return { status: "error", message: "Falta el ID de la solicitud." };
+
   const tenant = await getCurrentTenant();
   if (tenant.kind !== "agency") {
-    return { status: "error", message: "Sólo una agencia puede crear solicitudes." };
+    return { status: "error", message: "Sólo una agencia puede editar solicitudes." };
   }
 
   const clientName = String(formData.get("client_name") ?? "").trim();
@@ -37,8 +41,6 @@ export async function createQuoteRequest(
   const infants = parseInt0(formData.get("pax_infants"));
   const notes = String(formData.get("notes") ?? "").trim() || undefined;
   const services = parseServices(formData);
-  const operatorIds = formData.getAll("operator_ids").map(String).filter(Boolean);
-  const sendNow = formData.get("send_now") === "on";
 
   if (!clientName) return { status: "error", message: "Falta el nombre del cliente." };
   if (!destination) return { status: "error", message: "Falta el destino." };
@@ -47,8 +49,8 @@ export async function createQuoteRequest(
   }
 
   const supabase = await createClient();
-  const { data: requestId, error } = await supabase.rpc("create_quote_request", {
-    p_agency_id: tenant.agencyId,
+  const { error } = await supabase.rpc("update_quote_request", {
+    p_request_id: requestId,
     p_client_name: clientName,
     p_client_email: clientEmail,
     p_client_phone: clientPhone,
@@ -63,22 +65,21 @@ export async function createQuoteRequest(
     p_notes: notes,
   });
 
-  if (error || !requestId) {
-    return { status: "error", message: error?.message ?? "No se pudo crear la solicitud." };
+  if (error) {
+    return { status: "error", message: error.message };
   }
 
-  if (sendNow && operatorIds.length > 0) {
-    const { error: sendErr } = await supabase.rpc("send_quote_request", {
-      p_request_id: requestId,
-      p_operator_ids: operatorIds,
-    });
-    if (sendErr) {
-      return {
-        status: "error",
-        message: `Solicitud creada pero falló el envío: ${sendErr.message}. Andá al detalle para reintentar.`,
-      };
-    }
-  }
-
+  revalidatePath(`/agency/requests/${requestId}`);
   redirect(`/agency/requests/${requestId}`);
+}
+
+export async function deleteQuoteRequestAction(requestId: string): Promise<void> {
+  const tenant = await getCurrentTenant();
+  if (tenant.kind !== "agency") return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_quote_request", { p_request_id: requestId });
+  if (error) throw new Error(error.message);
+
+  redirect("/agency/requests");
 }

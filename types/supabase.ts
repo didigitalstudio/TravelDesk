@@ -759,6 +759,10 @@ export type Database = {
       }
       delete_attachment: { Args: { p_id: string }; Returns: string }
       delete_passenger: { Args: { p_id: string }; Returns: undefined }
+      delete_quote_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       get_invitation_preview: {
         Args: { p_token: string }
         Returns: {
@@ -829,6 +833,24 @@ export type Database = {
           p_valid_until?: string
         }
         Returns: string
+      }
+      update_quote_request: {
+        Args: {
+          p_client_email?: string
+          p_client_name: string
+          p_client_phone?: string
+          p_departure_date?: string
+          p_destination: string
+          p_flexible_dates?: boolean
+          p_notes?: string
+          p_pax_adults?: number
+          p_pax_children?: number
+          p_pax_infants?: number
+          p_request_id: string
+          p_return_date?: string
+          p_services?: Database["public"]["Enums"]["service_type"][]
+        }
+        Returns: undefined
       }
       upsert_passenger: {
         Args: {

@@ -112,6 +112,8 @@ supabase/
     20260425035504_reservations.sql
     20260425035813_request_issuance.sql
     20260426032754_bsp_calendar.sql
+    20260426034819_request_edit_and_visibility_fix.sql
+    20260426035323_update_request_rpc_defaults.sql
 
 types/supabase.ts            # Generado, no editar a mano
 
@@ -185,6 +187,8 @@ Todas las tablas tienen RLS habilitado. Helpers `security definer` con `set sear
 - `upsert_reservation(request_id, reservation_code, notes)` → uuid. Sólo operador con quote `accepted`. Promueve `accepted/partially_accepted` → `reserved`.
 - `mark_request_issued(request_id)` → `reserved/...` → `issued`. Setea `quote_requests.issued_at`. Requiere reservation cargada. Trigger `set_bsp_due_date` calcula `bsp_due_date` si la request incluye `flights`.
 - `compute_bsp_due_date(date)` → date. Lookup en `bsp_calendar` por la fecha de emisión.
+- `update_quote_request(...)` → void. Edita una solicitud sólo si está en `draft` o `sent`. Misma firma que create excepto el `agency_id`.
+- `delete_quote_request(request_id)` → void. Hard delete con cascade a dispatches/history. Sólo si está en `draft` o `sent`.
 
 ## Auth
 
@@ -241,6 +245,9 @@ Migración `request_issuance`: agrega `issued_at` en `quote_requests` y RPC `mar
 
 ### Iteración 10 — Vencimiento BSP
 Migración `bsp_calendar`: tabla `bsp_calendar` con los 48 períodos del calendario IATA Argentina 2026 (cada período = `period_code`, `period_from`, `period_to`, `payment_date`). RLS open-read para `authenticated`. Agrega `bsp_due_date date` a `quote_requests`. Función `compute_bsp_due_date(date)` resuelve el día de pago para una fecha de emisión. Trigger `set_bsp_due_date` (BEFORE UPDATE) la setea cuando `issued_at` pasa de NULL a NOT NULL **y** `services` contiene `flights`. La fecha se evalúa en `America/Argentina/Buenos_Aires` para no corrernos por UTC. Si la emisión cae fuera del calendario cargado (ej. 2027), `bsp_due_date` queda NULL hasta que se cargue el calendario nuevo. UI: helper `lib/bsp.ts` con semáforo (verde > 7d, amarillo ≤ 7d, rojo ≤ 1d, gris vencido) y componente `BspBadge` con dos variantes: `compact` (lista) y `full` (header de detalle, muestra fecha + días). Mostrado simétrico en ambos lados (agencia y operador), en list pages y detail headers.
+
+### Iteración 11a — Edición/eliminación de solicitudes + fix RLS
+Migración `request_edit_and_visibility_fix` + `update_request_rpc_defaults`. Agrega RPCs `update_quote_request` y `delete_quote_request`, ambas restringidas a status `draft` o `sent` (después de eso queda congelada porque hay cotizaciones en juego). Delete hace cascade manual a `quote_request_dispatches` y `quote_request_status_history`. Bug fix: las policies de `agencies` y `operators` no permitían visibilidad cross-tenant cuando había dispatch — el operador no podía ver el nombre de la agencia que lo despachó (el `agencies!inner` join devolvía vacío). Nuevas policies `agencies_select_linked_or_dispatched_operator` y `operators_select_dispatched_by_agency` arreglan eso. UI: nueva página `/agency/requests/[id]/edit` que reusa el form (`_components/request-form.tsx` extraído del antiguo `new-request-form.tsx` con prop `mode`). Botones "Editar" y "Eliminar" en el header del detalle, visibles sólo cuando el status lo permite. Eliminar usa `confirm()` nativo y borra del todo (distinto de "Cancelar" que mantiene el registro como `cancelled`).
 
 ## Estado: iteraciones pendientes
 

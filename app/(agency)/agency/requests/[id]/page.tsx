@@ -13,6 +13,7 @@ import {
 } from "@/lib/requests";
 import { DispatchPanel } from "./dispatch-panel";
 import { CancelButton } from "./cancel-button";
+import { DeleteButton } from "./delete-button";
 import { QuoteCard } from "./quote-card";
 import {
   PassengersPanel,
@@ -200,6 +201,8 @@ export default async function RequestDetailPage({
 
   const isCancelled = request.status === "cancelled";
   const isClosed = request.status === "closed";
+  const canEditOrDelete =
+    request.status === "draft" || request.status === "sent";
 
   return (
     <div className="space-y-6">
@@ -216,13 +219,24 @@ export default async function RequestDetailPage({
             {request.client_name} · {request.destination}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/agency/requests"
             className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
           >
             ← Volver
           </Link>
+          {canEditOrDelete && (
+            <>
+              <Link
+                href={`/agency/requests/${request.id}/edit`}
+                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                Editar
+              </Link>
+              <DeleteButton requestId={request.id} code={request.code} />
+            </>
+          )}
           {!isCancelled && !isClosed && <CancelButton requestId={request.id} />}
         </div>
       </div>

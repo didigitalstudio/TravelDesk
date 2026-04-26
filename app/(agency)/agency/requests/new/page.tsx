@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
-import { NewRequestForm } from "./new-request-form";
+import { RequestForm } from "../_components/request-form";
+import { createQuoteRequest } from "./actions";
 
 export const metadata = { title: "Nueva solicitud — Travel Desk" };
 
@@ -35,7 +36,7 @@ export default async function NewRequestPage() {
         </Link>
       </div>
 
-      <NewRequestForm operators={operators} />
+      <RequestForm mode="create" action={createQuoteRequest} operators={operators} />
     </div>
   );
 }
