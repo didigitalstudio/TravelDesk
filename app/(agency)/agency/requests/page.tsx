@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { StatusBadge } from "@/components/status-badge";
+import { BspBadge } from "@/components/bsp-badge";
 import { formatDateRange, totalPax } from "@/lib/requests";
 
 export const metadata = { title: "Solicitudes — Travel Desk" };
@@ -14,7 +15,7 @@ export default async function RequestsListPage() {
   const { data: requests } = await supabase
     .from("quote_requests")
     .select(
-      "id, code, status, client_name, destination, departure_date, return_date, flexible_dates, pax_adults, pax_children, pax_infants, created_at",
+      "id, code, status, client_name, destination, departure_date, return_date, flexible_dates, pax_adults, pax_children, pax_infants, created_at, bsp_due_date",
     )
     .eq("agency_id", tenant.agencyId)
     .order("created_at", { ascending: false });
@@ -93,7 +94,10 @@ export default async function RequestsListPage() {
                     {totalPax(r.pax_adults, r.pax_children, r.pax_infants)}
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={r.status} />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <StatusBadge status={r.status} />
+                      <BspBadge dueDate={r.bsp_due_date} />
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right text-xs text-zinc-500">
                     {new Date(r.created_at).toLocaleDateString("es-AR")}

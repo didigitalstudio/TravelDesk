@@ -106,6 +106,12 @@ supabase/
     20260425005143_add_invitation_preview.sql
     20260425011158_quote_requests.sql
     20260425011820_quote_requests_rpc_defaults.sql
+    20260425033638_quotes.sql
+    20260425034538_quote_acceptance.sql
+    20260425035035_passengers_attachments.sql
+    20260425035504_reservations.sql
+    20260425035813_request_issuance.sql
+    20260426032754_bsp_calendar.sql
 
 types/supabase.ts            # Generado, no editar a mano
 
@@ -123,7 +129,7 @@ legacy/leo-cotizador.html    # HTML standalone original. Conservar hasta confirm
 - **`invitations`**: `kind` (agency_member/operator_member/operator_link), `email`, `status`, `token`, `expires_at` (14 días default), `agency_id`/`operator_id` según kind, `role`
 
 ### Solicitudes
-- **`quote_requests`**: `code` (TD-NNNN por agencia), `status` (11 valores), datos de cliente, datos de viaje, `services` (array de service_type), `notes`, `issued_at` (set por `mark_request_issued`). Unique `(agency_id, code)`.
+- **`quote_requests`**: `code` (TD-NNNN por agencia), `status` (11 valores), datos de cliente, datos de viaje, `services` (array de service_type), `notes`, `issued_at` (set por `mark_request_issued`), `bsp_due_date` (set por trigger cuando `issued_at` cambia y la request incluye `flights`). Unique `(agency_id, code)`.
 - **`quote_request_dispatches`** (unique `quote_request_id, operator_id`): a qué operadores se envió y cuándo.
 - **`quote_request_status_history`**: `from_status`, `to_status`, `changed_by`, `changed_at`, `notes`.
 
@@ -135,6 +141,9 @@ legacy/leo-cotizador.html    # HTML standalone original. Conservar hasta confirm
 - **`passengers`**: cargados por la agencia, `quote_request_id`, `agency_id`, `full_name`, `passenger_type` (adult/child/infant), `document_type`/`document_number`, `birth_date`, `email`, `phone`, `notes`.
 - **`attachments`**: tabla genérica de archivos del expediente. `kind` enum (passenger_doc/reservation/voucher/invoice/file_doc/payment_receipt). `passenger_id` para passenger_doc, `operator_id` para los que sube el operador (reservation/voucher/invoice/file_doc). `storage_path` unique. Bucket privado `attachments` con path convention `{agency_id}/{request_id}/{kind}/{uuid}-{filename}`; storage policies validan membership desde `storage.foldername`.
 - **`reservations`**: una por request (unique `quote_request_id`), `operator_id`, `agency_id`, `reservation_code` (PNR/file/locator), `notes`. Insertable solo por el operador con quote `accepted` (validado en RPC).
+
+### Calendario BSP
+- **`bsp_calendar`**: `period_code` (PK, ej. `20260101W`), `period_from`, `period_to`, `payment_date`. 48 filas hardcodeadas para Argentina 2026. RLS open-read para `authenticated` (data de referencia pública).
 
 ### Enums
 - `member_role`: owner, admin, member
@@ -174,7 +183,8 @@ Todas las tablas tienen RLS habilitado. Helpers `security definer` con `set sear
 - `register_attachment(request_id, kind, storage_path, file_name, mime_type, size_bytes, passenger_id, operator_id)` → uuid. Lado agencia: `operator_id null`. Lado operador: validado por membership + dispatched.
 - `delete_attachment(id)` → devuelve `storage_path` para que el client borre el blob.
 - `upsert_reservation(request_id, reservation_code, notes)` → uuid. Sólo operador con quote `accepted`. Promueve `accepted/partially_accepted` → `reserved`.
-- `mark_request_issued(request_id)` → `reserved/...` → `issued`. Setea `quote_requests.issued_at`. Requiere reservation cargada.
+- `mark_request_issued(request_id)` → `reserved/...` → `issued`. Setea `quote_requests.issued_at`. Requiere reservation cargada. Trigger `set_bsp_due_date` calcula `bsp_due_date` si la request incluye `flights`.
+- `compute_bsp_due_date(date)` → date. Lookup en `bsp_calendar` por la fecha de emisión.
 
 ## Auth
 
@@ -229,12 +239,10 @@ Migración `reservations`: tabla `reservations` (unique por `quote_request_id`) 
 ### Iteración 9 — Emisión
 Migración `request_issuance`: agrega `issued_at` en `quote_requests` y RPC `mark_request_issued` (requiere quote `accepted` + reserva cargada; transiciona a `issued` con history). UI operador: `IssuancePanel` con tres bloques (`voucher`, `invoice`, `file_doc`) — cada uno usa `OperatorAttachmentsBlock` para subir/borrar — y un botón "Marcar como emitida". UI agencia: `IssuanceView` read-only con grid de los tres tipos y badge "Emitida {fecha}".
 
-## Estado: iteraciones pendientes
-
 ### Iteración 10 — Vencimiento BSP
-- Schema: `bsp_calendar` (fecha emisión → fecha vencimiento). Hardcodear el calendario IATA del año.
-- Cálculo: en `quote_requests`, columna calculada o trigger que resuelve `bsp_due_date` cuando se setea `issued_at`.
-- UI: badge en lista y detalle, con flag de proximidad (verde > 7d, amarillo ≤ 7d, rojo ≤ 1d).
+Migración `bsp_calendar`: tabla `bsp_calendar` con los 48 períodos del calendario IATA Argentina 2026 (cada período = `period_code`, `period_from`, `period_to`, `payment_date`). RLS open-read para `authenticated`. Agrega `bsp_due_date date` a `quote_requests`. Función `compute_bsp_due_date(date)` resuelve el día de pago para una fecha de emisión. Trigger `set_bsp_due_date` (BEFORE UPDATE) la setea cuando `issued_at` pasa de NULL a NOT NULL **y** `services` contiene `flights`. La fecha se evalúa en `America/Argentina/Buenos_Aires` para no corrernos por UTC. Si la emisión cae fuera del calendario cargado (ej. 2027), `bsp_due_date` queda NULL hasta que se cargue el calendario nuevo. UI: helper `lib/bsp.ts` con semáforo (verde > 7d, amarillo ≤ 7d, rojo ≤ 1d, gris vencido) y componente `BspBadge` con dos variantes: `compact` (lista) y `full` (header de detalle, muestra fecha + días). Mostrado simétrico en ambos lados (agencia y operador), en list pages y detail headers.
+
+## Estado: iteraciones pendientes
 
 ### Iteración 11 — Cuenta corriente
 - Schema: `payments` (agency↔operator, amount, currency, due_date, paid_at, receipt_url, verified_at), o vista calculada desde quote_requests aceptados/issued.

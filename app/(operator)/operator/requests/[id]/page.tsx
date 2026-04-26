@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { StatusBadge } from "@/components/status-badge";
+import { BspBadge } from "@/components/bsp-badge";
 import {
   QUOTE_STATUS_LABELS,
   SERVICE_LABELS,
@@ -195,11 +196,12 @@ export default async function OperatorRequestDetailPage({
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-mono text-2xl font-semibold tracking-tight">
               {request.code}
             </h1>
             <StatusBadge status={request.status} />
+            <BspBadge dueDate={request.bsp_due_date} variant="full" />
           </div>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
             De {request.agency.name} · recibida{" "}

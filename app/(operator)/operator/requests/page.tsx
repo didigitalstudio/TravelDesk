@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { StatusBadge } from "@/components/status-badge";
+import { BspBadge } from "@/components/bsp-badge";
 import { formatDateRange, totalPax } from "@/lib/requests";
 
 export const metadata = { title: "Solicitudes recibidas — Travel Desk" };
@@ -16,7 +17,7 @@ export default async function OperatorRequestsListPage() {
   const { data: dispatches } = await supabase
     .from("quote_request_dispatches")
     .select(
-      "id, sent_at, request:quote_requests!inner(id, code, status, client_name, destination, departure_date, return_date, flexible_dates, pax_adults, pax_children, pax_infants, agency:agencies!inner(id, name))",
+      "id, sent_at, request:quote_requests!inner(id, code, status, client_name, destination, departure_date, return_date, flexible_dates, pax_adults, pax_children, pax_infants, bsp_due_date, agency:agencies!inner(id, name))",
     )
     .eq("operator_id", tenant.operatorId)
     .order("sent_at", { ascending: false });
@@ -86,7 +87,10 @@ export default async function OperatorRequestsListPage() {
                       {totalPax(r.pax_adults, r.pax_children, r.pax_infants)}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={r.status} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge status={r.status} />
+                        <BspBadge dueDate={r.bsp_due_date} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right text-xs text-zinc-500">
                       {new Date(d.sent_at).toLocaleDateString("es-AR")}

@@ -186,6 +186,27 @@ export type Database = {
           },
         ]
       }
+      bsp_calendar: {
+        Row: {
+          payment_date: string
+          period_code: string
+          period_from: string
+          period_to: string
+        }
+        Insert: {
+          payment_date: string
+          period_code: string
+          period_from: string
+          period_to: string
+        }
+        Update: {
+          payment_date?: string
+          period_code?: string
+          period_from?: string
+          period_to?: string
+        }
+        Relationships: []
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -486,6 +507,7 @@ export type Database = {
       quote_requests: {
         Row: {
           agency_id: string
+          bsp_due_date: string | null
           client_email: string | null
           client_name: string
           client_phone: string | null
@@ -508,6 +530,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          bsp_due_date?: string | null
           client_email?: string | null
           client_name: string
           client_phone?: string | null
@@ -530,6 +553,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          bsp_due_date?: string | null
           client_email?: string | null
           client_name?: string
           client_phone?: string | null
@@ -695,6 +719,10 @@ export type Database = {
       cancel_quote_request: {
         Args: { p_notes?: string; p_request_id: string }
         Returns: undefined
+      }
+      compute_bsp_due_date: {
+        Args: { p_issued_at_date: string }
+        Returns: string
       }
       create_agency: {
         Args: { p_name: string; p_slug: string }
