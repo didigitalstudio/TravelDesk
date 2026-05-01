@@ -78,3 +78,20 @@ export async function deleteOperatorAttachment(
   revalidatePath(`/agency/requests/${requestId}`);
   return { ok: true };
 }
+
+export async function verifyPayment(
+  paymentId: string,
+  requestId: string,
+  notes?: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("verify_payment", {
+    p_payment_id: paymentId,
+    p_notes: notes?.trim() || undefined,
+  });
+  if (error) return { ok: false, message: error.message };
+  revalidatePath(`/operator/requests/${requestId}`);
+  revalidatePath(`/agency/requests/${requestId}`);
+  revalidatePath("/operator/payments");
+  return { ok: true };
+}

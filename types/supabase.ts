@@ -392,6 +392,76 @@ export type Database = {
           },
         ]
       }
+      payments: {
+        Row: {
+          agency_id: string
+          amount: number
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          due_date: string | null
+          id: string
+          notes: string | null
+          operator_id: string
+          quote_request_id: string
+          receipt_uploaded_at: string | null
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          agency_id: string
+          amount: number
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency"]
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          operator_id: string
+          quote_request_id: string
+          receipt_uploaded_at?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          agency_id?: string
+          amount?: number
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          operator_id?: string
+          quote_request_id?: string
+          receipt_uploaded_at?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: true
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_items: {
         Row: {
           accepted_at: string | null
@@ -812,6 +882,10 @@ export type Database = {
         }
         Returns: string
       }
+      register_payment_receipt: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       reject_quote: { Args: { p_quote_id: string }; Returns: undefined }
       revoke_invitation: {
         Args: { p_invitation_id: string }
@@ -833,6 +907,10 @@ export type Database = {
           p_valid_until?: string
         }
         Returns: string
+      }
+      unregister_payment_receipt: {
+        Args: { p_request_id: string }
+        Returns: undefined
       }
       update_quote_request: {
         Args: {
@@ -874,6 +952,10 @@ export type Database = {
           p_reservation_code: string
         }
         Returns: string
+      }
+      verify_payment: {
+        Args: { p_notes?: string; p_payment_id: string }
+        Returns: undefined
       }
       withdraw_quote: { Args: { p_quote_id: string }; Returns: undefined }
     }

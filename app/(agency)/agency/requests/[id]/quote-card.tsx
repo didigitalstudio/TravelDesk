@@ -53,6 +53,19 @@ export function QuoteCard({
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(items.map((i) => i.id)),
   );
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [marginValue, setMarginValue] = useState<string>("");
+  const [marginType, setMarginType] = useState<"fixed" | "percent">("percent");
+
+  function openPdf() {
+    const value = Number.parseFloat(marginValue) || 0;
+    const params = new URLSearchParams({
+      quote_id: quoteId,
+      margin: value.toString(),
+      margin_type: marginType,
+    });
+    window.open(`/agency/requests/${requestId}/pdf?${params.toString()}`, "_blank");
+  }
 
   const expired = validUntil ? new Date(validUntil) < new Date() : false;
   const isActive = status === "submitted";
@@ -223,6 +236,65 @@ export function QuoteCard({
 
       {error && (
         <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+      )}
+
+      {(isActive || isAccepted) && (
+        <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          {!pdfOpen ? (
+            <button
+              type="button"
+              onClick={() => setPdfOpen(true)}
+              className="text-xs text-zinc-600 hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              Generar presupuesto cliente (PDF) →
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-xs uppercase tracking-wider text-zinc-500">
+                Presupuesto cliente
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={marginValue}
+                  onChange={(e) => setMarginValue(e.target.value)}
+                  placeholder="0"
+                  className="w-24 rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+                />
+                <select
+                  value={marginType}
+                  onChange={(e) =>
+                    setMarginType(e.target.value as "fixed" | "percent")
+                  }
+                  className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-950"
+                >
+                  <option value="percent">% (sobre subtotal)</option>
+                  <option value="fixed">{currency} (monto fijo)</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={openPdf}
+                  className="rounded-lg bg-zinc-900 px-3 py-1 text-xs font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                >
+                  Generar PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPdfOpen(false)}
+                  className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                >
+                  Cancelar
+                </button>
+              </div>
+              <p className="text-[11px] text-zinc-500">
+                Margen no visible para el operador. Se abre en nueva pestaña.
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {canActOnRequest && isActive && !expired && (

@@ -24,6 +24,7 @@ import { ReservationPanel } from "./reservation-panel";
 import type { OperatorAttachment } from "./operator-attachments-block";
 import { IssuancePanel } from "./issuance-panel";
 import type { AttachmentKind } from "@/lib/passengers";
+import { PaymentVerifyPanel, type ReceiptView } from "./payment-verify-panel";
 
 export const metadata = { title: "Solicitud — Travel Desk" };
 
@@ -86,6 +87,7 @@ export default async function OperatorRequestDetailPage({
         "voucher",
         "invoice",
         "file_doc",
+        "payment_receipt",
       ])
       .order("created_at", { ascending: false }),
   ]);
@@ -97,6 +99,22 @@ export default async function OperatorRequestDetailPage({
     .eq("operator_id", tenant.operatorId)
     .maybeSingle();
 
+  const paymentRelevant =
+    request.status === "issued" ||
+    request.status === "payment_pending" ||
+    request.status === "closed";
+
+  const { data: paymentRow } = paymentRelevant
+    ? await supabase
+        .from("payments")
+        .select(
+          "id, amount, currency, due_date, receipt_uploaded_at, verified_at, notes",
+        )
+        .eq("quote_request_id", id)
+        .eq("operator_id", tenant.operatorId)
+        .maybeSingle()
+    : { data: null };
+
   const myAcceptedQuote = (quotes ?? []).find(
     (q) => q.status === "accepted",
   );
@@ -104,6 +122,7 @@ export default async function OperatorRequestDetailPage({
 
   const reservationAttachments: OperatorAttachment[] = [];
   const issuanceAttachments: Partial<Record<AttachmentKind, OperatorAttachment[]>> = {};
+  const paymentReceipts: ReceiptView[] = [];
   for (const a of attachmentsRaw ?? []) {
     const row: OperatorAttachment = {
       id: a.id,
@@ -120,6 +139,13 @@ export default async function OperatorRequestDetailPage({
       a.kind === "file_doc"
     ) {
       (issuanceAttachments[a.kind] ??= []).push(row);
+    } else if (a.kind === "payment_receipt") {
+      paymentReceipts.push({
+        id: a.id,
+        fileName: a.file_name,
+        storagePath: a.storage_path,
+        sizeBytes: a.size_bytes,
+      });
     }
   }
 
@@ -407,6 +433,23 @@ export default async function OperatorRequestDetailPage({
           attachmentsByKind={issuanceAttachments}
           alreadyIssued={alreadyIssued}
           issuedAt={request.issued_at}
+        />
+      )}
+
+      {paymentRow && (
+        <PaymentVerifyPanel
+          requestId={request.id}
+          payment={{
+            id: paymentRow.id,
+            amount: Number(paymentRow.amount),
+            currency: paymentRow.currency,
+            dueDate: paymentRow.due_date,
+            receiptUploadedAt: paymentRow.receipt_uploaded_at,
+            verifiedAt: paymentRow.verified_at,
+            verifiedNotes: paymentRow.notes,
+            agencyName: request.agency.name,
+          }}
+          receipts={paymentReceipts}
         />
       )}
 

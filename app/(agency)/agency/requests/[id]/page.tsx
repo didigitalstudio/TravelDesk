@@ -25,6 +25,10 @@ import {
   type ReservationAttachment,
 } from "./reservation-view";
 import { IssuanceView, type IssuanceAttachment } from "./issuance-view";
+import {
+  PaymentPanel,
+  type PaymentReceiptAttachment,
+} from "./payment-panel";
 
 export const metadata = { title: "Solicitud — Travel Desk" };
 
@@ -88,10 +92,16 @@ export default async function RequestDetailPage({
     request.status === "payment_pending" ||
     request.status === "closed";
 
+  const paymentRelevant =
+    request.status === "issued" ||
+    request.status === "payment_pending" ||
+    request.status === "closed";
+
   const [
     { data: passengersRaw },
     { data: attachmentsRaw },
     { data: reservationRow },
+    { data: paymentRow },
   ] = await Promise.all([
     acceptanceReached
       ? supabase
@@ -115,6 +125,7 @@ export default async function RequestDetailPage({
             "voucher",
             "invoice",
             "file_doc",
+            "payment_receipt",
           ])
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as never[] }),
@@ -123,6 +134,15 @@ export default async function RequestDetailPage({
           .from("reservations")
           .select(
             "id, reservation_code, notes, created_at, operator:operators!inner(id, name)",
+          )
+          .eq("quote_request_id", id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    paymentRelevant
+      ? supabase
+          .from("payments")
+          .select(
+            "id, amount, currency, due_date, receipt_uploaded_at, verified_at, notes, operator:operators!inner(id, name)",
           )
           .eq("quote_request_id", id)
           .maybeSingle()
@@ -144,6 +164,7 @@ export default async function RequestDetailPage({
   const attachmentsByPassenger: Record<string, AttachmentRow[]> = {};
   const reservationAttachments: ReservationAttachment[] = [];
   const issuanceAttachments: IssuanceAttachment[] = [];
+  const paymentReceipts: PaymentReceiptAttachment[] = [];
   for (const a of attachmentsRaw ?? []) {
     if (a.kind === "passenger_doc") {
       if (!a.passenger_id) continue;
@@ -174,6 +195,14 @@ export default async function RequestDetailPage({
         storagePath: a.storage_path,
         sizeBytes: a.size_bytes,
         kind: a.kind,
+      });
+    } else if (a.kind === "payment_receipt") {
+      paymentReceipts.push({
+        id: a.id,
+        fileName: a.file_name,
+        storagePath: a.storage_path,
+        sizeBytes: a.size_bytes,
+        createdAt: a.created_at,
       });
     }
   }
@@ -408,6 +437,25 @@ export default async function RequestDetailPage({
         <IssuanceView
           attachments={issuanceAttachments}
           issuedAt={request.issued_at}
+        />
+      )}
+
+      {paymentRow && (
+        <PaymentPanel
+          agencyId={tenant.agencyId}
+          requestId={request.id}
+          payment={{
+            id: paymentRow.id,
+            amount: Number(paymentRow.amount),
+            currency: paymentRow.currency,
+            dueDate: paymentRow.due_date,
+            receiptUploadedAt: paymentRow.receipt_uploaded_at,
+            verifiedAt: paymentRow.verified_at,
+            notes: paymentRow.notes,
+            operatorName: paymentRow.operator.name,
+          }}
+          receipts={paymentReceipts}
+          requestStatus={request.status}
         />
       )}
 
