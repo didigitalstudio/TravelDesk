@@ -22,30 +22,25 @@ export default async function AgencyIntegrationsPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Integraciones</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Conectá servicios externos para automatizar parte del flujo.
-        </p>
-      </div>
-
       {params.drive_connected && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
+        <div className="surface border-emerald-500/30 bg-emerald-500/[0.06] p-3 text-sm text-emerald-200">
           Google Drive conectado correctamente.
         </div>
       )}
       {params.drive_error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
+        <div className="surface border-rose-500/30 bg-rose-500/[0.06] p-3 text-sm text-rose-200">
           Error conectando Drive: {params.drive_error}
         </div>
       )}
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-3 text-sm font-semibold">Google Drive</h2>
-        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
-          Sincronizá los documentos de cada expediente a tu Google Drive personal,
-          organizados por cliente y solicitud.
-        </p>
+      <section className="surface p-6">
+        <header className="mb-4">
+          <h2 className="text-base font-semibold text-zinc-100">Google Drive</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Sincronizá los documentos de cada expediente a tu Google Drive
+            personal, organizados por cliente y solicitud.
+          </p>
+        </header>
         <IntegrationsPanel
           connected={
             conn

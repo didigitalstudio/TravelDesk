@@ -22,7 +22,7 @@ export async function GET(req: Request): Promise<Response> {
   const oauthError = url.searchParams.get("error");
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? `${url.protocol}//${url.host}`;
-  const integrationsUrl = new URL("/agency/integrations", baseUrl);
+  const integrationsUrl = new URL("/agency/settings/integrations", baseUrl);
 
   const cookieStore = await cookies();
   const oauthCookie = cookieStore.get("td_google_oauth");

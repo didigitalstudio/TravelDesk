@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { syncRequestToDrive } from "../../integrations/actions";
+import { syncRequestToDrive } from "../../settings/integrations/actions";
 
 export function DriveSyncButton({ requestId }: { requestId: string }) {
   const [pending, start] = useTransition();

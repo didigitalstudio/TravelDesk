@@ -20,7 +20,7 @@ export async function disconnectDrive(): Promise<{ ok: boolean; message?: string
     .delete()
     .eq("agency_id", tenant.agencyId);
   if (error) return { ok: false, message: error.message };
-  revalidatePath("/agency/integrations");
+  revalidatePath("/agency/settings/integrations");
   return { ok: true };
 }
 

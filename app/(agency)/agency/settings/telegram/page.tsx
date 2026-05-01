@@ -25,14 +25,13 @@ export default async function AgencyTelegramPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Telegram</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Vinculá tu Telegram para crear solicitudes desde el celular en segundos.
-        </p>
-      </div>
-
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="surface p-6">
+        <header className="mb-4">
+          <h2 className="text-base font-semibold text-zinc-100">Telegram</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Vinculá tu Telegram para crear solicitudes desde el celular en segundos.
+          </p>
+        </header>
         <TelegramPanel
           botUsername={BOT_USERNAME}
           initialLink={
@@ -47,27 +46,38 @@ export default async function AgencyTelegramPage() {
         />
       </section>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-3 text-sm font-semibold">Comandos del bot</h2>
-        <ul className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
+      <section className="surface p-6">
+        <h3 className="mb-3 text-sm font-semibold text-zinc-100">Comandos del bot</h3>
+        <ul className="space-y-2 text-sm text-zinc-300">
           <li>
-            <code>/cotizar Cliente ; Destino ; Notas</code> — crea una solicitud en
-            estado borrador.
+            <code className="rounded-md bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-indigo-200">
+              /cotizar Cliente ; Destino ; Notas
+            </code>{" "}
+            — crea una solicitud en estado borrador.
           </li>
           <li>
-            <code>/listar</code> — últimas 5 solicitudes de tu agencia.
+            <code className="rounded-md bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-indigo-200">
+              /listar
+            </code>{" "}
+            — últimas 5 solicitudes de tu agencia.
           </li>
           <li>
-            <code>/vincular CODIGO</code> — vincular el chat con tu cuenta (una vez).
+            <code className="rounded-md bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-indigo-200">
+              /vincular CODIGO
+            </code>{" "}
+            — vincular el chat con tu cuenta (una vez).
           </li>
           <li>
-            <code>/help</code> — ayuda.
+            <code className="rounded-md bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-indigo-200">
+              /help
+            </code>{" "}
+            — ayuda.
           </li>
         </ul>
         <p className="mt-3 text-xs text-zinc-500">
           La solicitud queda como borrador con el cliente y destino que indicaste.
           Después la completás y la enviás a operadores desde{" "}
-          <Link href="/agency/requests" className="underline">
+          <Link href="/agency/requests" className="accent-link">
             la web
           </Link>
           .
