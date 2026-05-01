@@ -7,6 +7,7 @@ import { sendMailSafe } from "@/lib/mail/send";
 import { paymentVerifiedEmail } from "@/lib/mail/templates";
 import { agencyEmails } from "@/lib/mail/recipients";
 import { getOrigin } from "@/lib/invite";
+import { userMessageFromError } from "@/lib/errors";
 
 export async function upsertReservation(
   requestId: string,
@@ -60,7 +61,7 @@ export async function markRequestIssued(
   const { error } = await supabase.rpc("mark_request_issued", {
     p_request_id: requestId,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: userMessageFromError(error) };
   revalidatePath(`/operator/requests/${requestId}`);
   revalidatePath(`/agency/requests/${requestId}`);
   return { ok: true };
@@ -93,7 +94,7 @@ export async function verifyPayment(
     p_payment_id: paymentId,
     p_notes: notes?.trim() || undefined,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: userMessageFromError(error) };
   revalidatePath(`/operator/requests/${requestId}`);
   revalidatePath(`/agency/requests/${requestId}`);
   revalidatePath("/operator/payments");
@@ -118,7 +119,7 @@ async function notifyPaymentVerified(requestId: string): Promise<void> {
       .eq("quote_request_id", requestId)
       .maybeSingle();
 
-    const emails = await agencyEmails(req.agency_id);
+    const emails = await agencyEmails(req.agency_id, requestId);
     const operatorName = payment?.operator.name ?? "El operador";
     const tpl = paymentVerifiedEmail({
       operatorName,
@@ -130,6 +131,7 @@ async function notifyPaymentVerified(requestId: string): Promise<void> {
     }
     await supabase.rpc("notify_agency_members", {
       p_agency_id: req.agency_id,
+      p_request_id: requestId,
       p_kind: "payment_verified",
       p_title: `${operatorName} verificó tu pago (${req.code})`,
       p_body: "Solicitud cerrada",

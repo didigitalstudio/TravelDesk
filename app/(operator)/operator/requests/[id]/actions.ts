@@ -7,6 +7,7 @@ import { sendMailSafe } from "@/lib/mail/send";
 import { quoteSubmittedEmail } from "@/lib/mail/templates";
 import { agencyEmails } from "@/lib/mail/recipients";
 import { getOrigin } from "@/lib/invite";
+import { userMessageFromError } from "@/lib/errors";
 
 export type QuoteItemInput = { description: string; amount: number };
 
@@ -46,7 +47,7 @@ export async function submitQuote(
       input.currency === "ARS" && input.exchangeRate ? input.exchangeRate : undefined,
     p_items: items,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: userMessageFromError(error) };
   revalidatePath(`/operator/requests/${input.requestId}`);
   revalidatePath("/operator/requests");
   await notifyQuoteSubmitted(input.requestId, input.totalAmount, input.currency);
@@ -85,7 +86,7 @@ async function notifyQuoteSubmitted(
       dispatch = data ? { operator: { name: data.operator.name } } : null;
     }
 
-    const emails = await agencyEmails(req.agency_id);
+    const emails = await agencyEmails(req.agency_id, requestId);
     const operatorName = dispatch?.operator.name ?? "El operador";
     const totalLabel = formatMoney(totalAmount, currency);
 
@@ -100,6 +101,7 @@ async function notifyQuoteSubmitted(
     }
     await supabase.rpc("notify_agency_members", {
       p_agency_id: req.agency_id,
+      p_request_id: requestId,
       p_kind: "quote_submitted",
       p_title: `${operatorName} cotizó ${req.code}`,
       p_body: totalLabel,

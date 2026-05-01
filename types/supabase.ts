@@ -965,6 +965,21 @@ export type Database = {
           },
         ]
       }
+      telegram_consume_attempts: {
+        Row: {
+          attempted_at: string
+          chat_id: number
+        }
+        Insert: {
+          attempted_at?: string
+          chat_id: number
+        }
+        Update: {
+          attempted_at?: string
+          chat_id?: number
+        }
+        Relationships: []
+      }
       telegram_link_codes: {
         Row: {
           code: string
@@ -1122,6 +1137,7 @@ export type Database = {
           p_body?: string
           p_kind: string
           p_link?: string
+          p_request_id: string
           p_title: string
         }
         Returns: undefined
@@ -1132,6 +1148,7 @@ export type Database = {
           p_kind: string
           p_link?: string
           p_operator_id: string
+          p_request_id: string
           p_title: string
         }
         Returns: undefined
@@ -1184,11 +1201,11 @@ export type Database = {
       }
       reject_quote: { Args: { p_quote_id: string }; Returns: undefined }
       relayed_agency_member_emails: {
-        Args: { p_agency_id: string }
+        Args: { p_agency_id: string; p_request_id: string }
         Returns: string[]
       }
       relayed_operator_member_emails: {
-        Args: { p_operator_id: string }
+        Args: { p_operator_id: string; p_request_id: string }
         Returns: string[]
       }
       revoke_client_summary_token: {

@@ -12,6 +12,7 @@ import {
 import { operatorEmails } from "@/lib/mail/recipients";
 import { getOrigin } from "@/lib/invite";
 import { formatMoney } from "@/lib/requests";
+import { userMessageFromError } from "@/lib/errors";
 
 export async function acceptQuote(
   quoteId: string,
@@ -22,6 +23,7 @@ export async function acceptQuote(
   if (error) return { ok: false, message: error.message };
   revalidatePath(`/agency/requests/${requestId}`);
   revalidatePath("/agency/requests");
+  revalidatePath("/agency/payments");
   await notifyQuoteAccepted(quoteId, requestId, false);
   return { ok: true };
 }
@@ -42,6 +44,7 @@ export async function acceptQuoteItems(
   if (error) return { ok: false, message: error.message };
   revalidatePath(`/agency/requests/${requestId}`);
   revalidatePath("/agency/requests");
+  revalidatePath("/agency/payments");
   await notifyQuoteAccepted(quoteId, requestId, true);
   return { ok: true };
 }
@@ -96,7 +99,7 @@ export async function registerPaymentReceipt(
   const { error } = await supabase.rpc("register_payment_receipt", {
     p_request_id: requestId,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: userMessageFromError(error) };
   revalidatePath(`/agency/requests/${requestId}`);
   revalidatePath("/agency/payments");
   await notifyPaymentReceiptUploaded(requestId);
@@ -110,7 +113,7 @@ export async function unregisterPaymentReceipt(
   const { data: paths, error } = await supabase.rpc("unregister_payment_receipt", {
     p_request_id: requestId,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: userMessageFromError(error) };
   if (paths && paths.length > 0) {
     await supabase.storage.from("attachments").remove(paths);
   }
@@ -190,13 +193,14 @@ async function notifyDispatch(requestId: string, operatorIds: string[]): Promise
     });
     await Promise.all(
       operatorIds.map(async (opId) => {
-        const emails = await operatorEmails(opId);
+        const emails = await operatorEmails(opId, requestId);
         await Promise.all([
           emails.length > 0
             ? sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html })
             : Promise.resolve(),
           supabase.rpc("notify_operator_members", {
             p_operator_id: opId,
+            p_request_id: requestId,
             p_kind: "request_dispatched",
             p_title: `Nueva solicitud ${req.code}`,
             p_body: `${req.agency.name} → ${req.destination}`,
@@ -220,7 +224,7 @@ async function notifyQuoteAccepted(quoteId: string, requestId: string, partial: 
       .eq("id", quoteId)
       .maybeSingle();
     if (!quote) return;
-    const emails = await operatorEmails(quote.operator_id);
+    const emails = await operatorEmails(quote.operator_id, requestId);
     const tpl = quoteAcceptedEmail({
       agencyName: quote.request.agency.name,
       requestCode: quote.request.code,
@@ -232,6 +236,7 @@ async function notifyQuoteAccepted(quoteId: string, requestId: string, partial: 
     }
     await supabase.rpc("notify_operator_members", {
       p_operator_id: quote.operator_id,
+      p_request_id: requestId,
       p_kind: "quote_accepted",
       p_title: `Aceptaron tu cotización (${quote.request.code})`,
       p_body: partial ? "Aceptación parcial" : "Aceptación total",
@@ -307,7 +312,7 @@ async function notifyPaymentReceiptUploaded(requestId: string): Promise<void> {
       .eq("quote_request_id", requestId)
       .maybeSingle();
     if (!payment) return;
-    const emails = await operatorEmails(payment.operator_id);
+    const emails = await operatorEmails(payment.operator_id, requestId);
     const amountLabel = formatMoney(Number(payment.amount), payment.currency);
     const tpl = paymentReceiptUploadedEmail({
       agencyName: payment.request.agency.name,
@@ -320,6 +325,7 @@ async function notifyPaymentReceiptUploaded(requestId: string): Promise<void> {
     }
     await supabase.rpc("notify_operator_members", {
       p_operator_id: payment.operator_id,
+      p_request_id: requestId,
       p_kind: "payment_receipt_uploaded",
       p_title: `Confirmación de pago — ${payment.request.code}`,
       p_body: `${payment.request.agency.name} pagó ${amountLabel}`,
