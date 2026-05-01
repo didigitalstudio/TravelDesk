@@ -72,6 +72,9 @@ export default async function ClientDetailPage({
           birthDate: client.birth_date,
           address: client.address,
           notes: client.notes,
+          documentExpiryDate: client.document_expiry_date,
+          nationality: client.nationality,
+          city: client.city,
         }}
       />
 

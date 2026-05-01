@@ -17,6 +17,9 @@ export type ClientFormInitial = {
   birthDate?: string | null;
   address?: string | null;
   notes?: string | null;
+  documentExpiryDate?: string | null;
+  nationality?: string | null;
+  city?: string | null;
 };
 
 const initialState: ClientFormState = { status: "idle" };
@@ -94,6 +97,35 @@ export function ClientForm({
               name="birth_date"
               type="date"
               defaultValue={initial?.birthDate ?? ""}
+              className={inputCls}
+            />
+          </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field id="document_expiry_date" label="Vencimiento del documento">
+            <input
+              id="document_expiry_date"
+              name="document_expiry_date"
+              type="date"
+              defaultValue={initial?.documentExpiryDate ?? ""}
+              className={inputCls}
+            />
+          </Field>
+          <Field id="nationality" label="Nacionalidad">
+            <input
+              id="nationality"
+              name="nationality"
+              defaultValue={initial?.nationality ?? ""}
+              placeholder="Argentina / Italiana / etc."
+              className={inputCls}
+            />
+          </Field>
+          <Field id="city" label="Localidad / Ciudad">
+            <input
+              id="city"
+              name="city"
+              defaultValue={initial?.city ?? ""}
+              placeholder="CABA / Rosario / etc."
               className={inputCls}
             />
           </Field>

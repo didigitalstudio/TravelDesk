@@ -279,13 +279,16 @@ export type Database = {
           address: string | null
           agency_id: string
           birth_date: string | null
+          city: string | null
           created_at: string
           created_by: string | null
+          document_expiry_date: string | null
           document_number: string | null
           document_type: string | null
           email: string | null
           full_name: string
           id: string
+          nationality: string | null
           notes: string | null
           phone: string | null
           updated_at: string
@@ -294,13 +297,16 @@ export type Database = {
           address?: string | null
           agency_id: string
           birth_date?: string | null
+          city?: string | null
           created_at?: string
           created_by?: string | null
+          document_expiry_date?: string | null
           document_number?: string | null
           document_type?: string | null
           email?: string | null
           full_name: string
           id?: string
+          nationality?: string | null
           notes?: string | null
           phone?: string | null
           updated_at?: string
@@ -309,13 +315,16 @@ export type Database = {
           address?: string | null
           agency_id?: string
           birth_date?: string | null
+          city?: string | null
           created_at?: string
           created_by?: string | null
+          document_expiry_date?: string | null
           document_number?: string | null
           document_type?: string | null
           email?: string | null
           full_name?: string
           id?: string
+          nationality?: string | null
           notes?: string | null
           phone?: string | null
           updated_at?: string
@@ -486,13 +495,16 @@ export type Database = {
         Row: {
           agency_id: string
           birth_date: string | null
+          city: string | null
           created_at: string
           created_by: string | null
+          document_expiry_date: string | null
           document_number: string | null
           document_type: string | null
           email: string | null
           full_name: string
           id: string
+          nationality: string | null
           notes: string | null
           passenger_type: Database["public"]["Enums"]["passenger_type"]
           phone: string | null
@@ -502,13 +514,16 @@ export type Database = {
         Insert: {
           agency_id: string
           birth_date?: string | null
+          city?: string | null
           created_at?: string
           created_by?: string | null
+          document_expiry_date?: string | null
           document_number?: string | null
           document_type?: string | null
           email?: string | null
           full_name: string
           id?: string
+          nationality?: string | null
           notes?: string | null
           passenger_type?: Database["public"]["Enums"]["passenger_type"]
           phone?: string | null
@@ -518,13 +533,16 @@ export type Database = {
         Update: {
           agency_id?: string
           birth_date?: string | null
+          city?: string | null
           created_at?: string
           created_by?: string | null
+          document_expiry_date?: string | null
           document_number?: string | null
           document_type?: string | null
           email?: string | null
           full_name?: string
           id?: string
+          nationality?: string | null
           notes?: string | null
           passenger_type?: Database["public"]["Enums"]["passenger_type"]
           phone?: string | null
@@ -1075,6 +1093,10 @@ export type Database = {
           status: Database["public"]["Enums"]["invitation_status"]
         }[]
       }
+      get_trip_attachment_path: {
+        Args: { p_attachment_id: string; p_token: string }
+        Returns: string
+      }
       get_trip_summary: { Args: { p_token: string }; Returns: Json }
       is_agency_admin: { Args: { p_agency_id: string }; Returns: boolean }
       is_agency_member: { Args: { p_agency_id: string }; Returns: boolean }
@@ -1114,6 +1136,10 @@ export type Database = {
       operator_member_emails: {
         Args: { p_operator_id: string }
         Returns: string[]
+      }
+      path_belongs_to_active_trip_summary: {
+        Args: { p_path: string }
+        Returns: boolean
       }
       pending_invitations_for_email: {
         Args: { p_email: string }
@@ -1256,11 +1282,14 @@ export type Database = {
         Args: {
           p_address?: string
           p_birth_date?: string
+          p_city?: string
+          p_document_expiry_date?: string
           p_document_number?: string
           p_document_type?: string
           p_email?: string
           p_full_name: string
           p_id?: string
+          p_nationality?: string
           p_notes?: string
           p_phone?: string
         }
@@ -1269,11 +1298,14 @@ export type Database = {
       upsert_passenger: {
         Args: {
           p_birth_date?: string
+          p_city?: string
+          p_document_expiry_date?: string
           p_document_number?: string
           p_document_type?: string
           p_email?: string
           p_full_name: string
           p_id?: string
+          p_nationality?: string
           p_notes?: string
           p_passenger_type: Database["public"]["Enums"]["passenger_type"]
           p_phone?: string

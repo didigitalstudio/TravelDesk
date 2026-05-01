@@ -186,7 +186,6 @@ async function notifyDispatch(requestId: string, operatorIds: string[]): Promise
       agencyName: req.agency.name,
       requestCode: req.code,
       destination: req.destination,
-      clientName: req.client_name,
       detailUrl,
     });
     await Promise.all(
@@ -200,7 +199,7 @@ async function notifyDispatch(requestId: string, operatorIds: string[]): Promise
             p_operator_id: opId,
             p_kind: "request_dispatched",
             p_title: `Nueva solicitud ${req.code}`,
-            p_body: `${req.agency.name} · ${req.client_name} → ${req.destination}`,
+            p_body: `${req.agency.name} → ${req.destination}`,
             p_link: `/operator/requests/${requestId}`,
           }),
         ]);

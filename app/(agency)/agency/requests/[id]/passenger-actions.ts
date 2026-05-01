@@ -14,6 +14,9 @@ export type PassengerInput = {
   email?: string;
   phone?: string;
   notes?: string;
+  documentExpiryDate?: string;
+  nationality?: string;
+  city?: string;
 };
 
 export async function upsertPassenger(
@@ -35,6 +38,9 @@ export async function upsertPassenger(
     p_phone: input.phone?.trim() || undefined,
     p_notes: input.notes?.trim() || undefined,
     p_id: input.id || undefined,
+    p_document_expiry_date: input.documentExpiryDate || undefined,
+    p_nationality: input.nationality?.trim() || undefined,
+    p_city: input.city?.trim() || undefined,
   });
   if (error) return { ok: false, message: error.message };
   revalidatePath(`/agency/requests/${requestId}`);

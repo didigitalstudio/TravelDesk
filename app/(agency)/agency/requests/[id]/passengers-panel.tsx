@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   PASSENGER_TYPE_LABELS,
@@ -28,6 +28,22 @@ export type PassengerRow = {
   email: string | null;
   phone: string | null;
   notes: string | null;
+  documentExpiryDate: string | null;
+  nationality: string | null;
+  city: string | null;
+};
+
+type ClientOption = {
+  id: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  documentType: string | null;
+  documentNumber: string | null;
+  birthDate: string | null;
+  documentExpiryDate: string | null;
+  nationality: string | null;
+  city: string | null;
 };
 
 export type AttachmentRow = {
@@ -56,6 +72,34 @@ export function PassengersPanel({
 }: Props) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [clients, setClients] = useState<ClientOption[]>([]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("clients")
+      .select(
+        "id, full_name, email, phone, document_type, document_number, birth_date, document_expiry_date, nationality, city",
+      )
+      .eq("agency_id", agencyId)
+      .order("full_name", { ascending: true })
+      .then(({ data }) => {
+        setClients(
+          (data ?? []).map((c) => ({
+            id: c.id,
+            fullName: c.full_name,
+            email: c.email,
+            phone: c.phone,
+            documentType: c.document_type,
+            documentNumber: c.document_number,
+            birthDate: c.birth_date,
+            documentExpiryDate: c.document_expiry_date,
+            nationality: c.nationality,
+            city: c.city,
+          })),
+        );
+      });
+  }, [agencyId]);
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
@@ -78,6 +122,7 @@ export function PassengersPanel({
       {adding && (
         <PassengerForm
           requestId={requestId}
+          clients={clients}
           onClose={() => setAdding(false)}
         />
       )}
@@ -96,6 +141,7 @@ export function PassengersPanel({
               {editingId === p.id ? (
                 <PassengerForm
                   requestId={requestId}
+                  clients={clients}
                   initial={p}
                   onClose={() => setEditingId(null)}
                 />
@@ -159,6 +205,11 @@ function PassengerRowView({
             {passenger.documentNumber && (
               <span>
                 {(passenger.documentType ?? "Doc")}: {passenger.documentNumber}
+                {passenger.documentExpiryDate && (
+                  <span className="ml-1 text-zinc-400">
+                    (vto. {new Date(passenger.documentExpiryDate).toLocaleDateString("es-AR")})
+                  </span>
+                )}
               </span>
             )}
             {passenger.birthDate && (
@@ -166,6 +217,8 @@ function PassengerRowView({
                 Nac.: {new Date(passenger.birthDate).toLocaleDateString("es-AR")}
               </span>
             )}
+            {passenger.nationality && <span>Nacionalidad: {passenger.nationality}</span>}
+            {passenger.city && <span>{passenger.city}</span>}
             {passenger.email && <span>{passenger.email}</span>}
             {passenger.phone && <span>{passenger.phone}</span>}
           </div>
@@ -209,10 +262,12 @@ function PassengerRowView({
 
 function PassengerForm({
   requestId,
+  clients,
   initial,
   onClose,
 }: {
   requestId: string;
+  clients: ClientOption[];
   initial?: PassengerRow;
   onClose: () => void;
 }) {
@@ -225,11 +280,52 @@ function PassengerForm({
     initial?.documentNumber ?? "",
   );
   const [birthDate, setBirthDate] = useState(initial?.birthDate ?? "");
+  const [documentExpiryDate, setDocumentExpiryDate] = useState(
+    initial?.documentExpiryDate ?? "",
+  );
+  const [nationality, setNationality] = useState(initial?.nationality ?? "");
+  const [city, setCity] = useState(initial?.city ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!pickerRef.current) return;
+      if (!pickerRef.current.contains(e.target as Node)) setPickerOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  function pickClient(c: ClientOption) {
+    setFullName(c.fullName);
+    setEmail(c.email ?? "");
+    setPhone(c.phone ?? "");
+    setDocumentType(c.documentType ?? "DNI");
+    setDocumentNumber(c.documentNumber ?? "");
+    setBirthDate(c.birthDate ?? "");
+    setDocumentExpiryDate(c.documentExpiryDate ?? "");
+    setNationality(c.nationality ?? "");
+    setCity(c.city ?? "");
+    setPickerOpen(false);
+    setPickerQuery("");
+  }
+
+  const lower = pickerQuery.toLowerCase();
+  const filteredClients = lower
+    ? clients.filter(
+        (c) =>
+          c.fullName.toLowerCase().includes(lower) ||
+          (c.documentNumber ?? "").toLowerCase().includes(lower) ||
+          (c.email ?? "").toLowerCase().includes(lower),
+      )
+    : clients;
 
   function submit() {
     setError(null);
@@ -247,6 +343,9 @@ function PassengerForm({
       email,
       phone,
       notes,
+      documentExpiryDate,
+      nationality,
+      city,
     };
     start(async () => {
       const res = await upsertPassenger(requestId, input);
@@ -257,6 +356,51 @@ function PassengerForm({
 
   return (
     <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50/40 p-3 dark:border-zinc-700 dark:bg-zinc-950/40">
+      {!initial && clients.length > 0 && (
+        <div ref={pickerRef} className="relative mb-3">
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Cargar desde un cliente del CRM (opcional)
+          </label>
+          <input
+            type="text"
+            value={pickerQuery}
+            onChange={(e) => {
+              setPickerQuery(e.target.value);
+              setPickerOpen(true);
+            }}
+            onFocus={() => setPickerOpen(true)}
+            placeholder="Buscar por nombre, email o documento…"
+            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          {pickerOpen && filteredClients.length > 0 && (
+            <div className="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+              <ul>
+                {filteredClients.slice(0, 12).map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => pickClient(c)}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      <div className="font-medium">{c.fullName}</div>
+                      <div className="text-xs text-zinc-500">
+                        {[
+                          c.documentNumber && `${c.documentType ?? "Doc"}: ${c.documentNumber}`,
+                          c.email,
+                          c.nationality,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Nombre completo" required>
           <input
@@ -296,11 +440,37 @@ function PassengerForm({
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
         </Field>
+        <Field label="Vencimiento del documento">
+          <input
+            type="date"
+            value={documentExpiryDate}
+            onChange={(e) => setDocumentExpiryDate(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </Field>
         <Field label="Fecha de nacimiento">
           <input
             type="date"
             value={birthDate}
             onChange={(e) => setBirthDate(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </Field>
+        <Field label="Nacionalidad">
+          <input
+            type="text"
+            value={nationality}
+            onChange={(e) => setNationality(e.target.value)}
+            placeholder="Argentina / Italiana / etc."
+            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </Field>
+        <Field label="Localidad / Ciudad">
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="CABA / Rosario / etc."
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
         </Field>
@@ -320,14 +490,16 @@ function PassengerForm({
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
         </Field>
-        <Field label="Notas">
-          <input
-            type="text"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </Field>
+        <div className="sm:col-span-2">
+          <Field label="Notas">
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </Field>
+        </div>
       </div>
       {error && (
         <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>

@@ -33,6 +33,9 @@ export async function upsertClientAction(
     p_address: emptyToNull(formData.get("address")) ?? undefined,
     p_notes: emptyToNull(formData.get("notes")) ?? undefined,
     p_id: id ?? undefined,
+    p_document_expiry_date: emptyToNull(formData.get("document_expiry_date")) ?? undefined,
+    p_nationality: emptyToNull(formData.get("nationality")) ?? undefined,
+    p_city: emptyToNull(formData.get("city")) ?? undefined,
   });
 
   if (error) return { status: "error", message: error.message };

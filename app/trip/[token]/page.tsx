@@ -7,7 +7,13 @@ import {
   totalPax,
   type ServiceType,
 } from "@/lib/requests";
-import { PASSENGER_TYPE_LABELS, type PassengerType } from "@/lib/passengers";
+import {
+  ATTACHMENT_KIND_LABELS,
+  PASSENGER_TYPE_LABELS,
+  formatBytes,
+  type AttachmentKind,
+  type PassengerType,
+} from "@/lib/passengers";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tu viaje — Travel Desk" };
@@ -36,10 +42,19 @@ type TripSummary = {
   };
   reservation: {
     reservation_code: string;
-    notes: string | null;
     operator_name: string;
   } | null;
-  passengers: { full_name: string; passenger_type: PassengerType }[];
+  passengers: {
+    full_name: string;
+    passenger_type: PassengerType;
+    nationality: string | null;
+  }[];
+  documents: {
+    id: string;
+    file_name: string;
+    kind: AttachmentKind;
+    size_bytes: number | null;
+  }[];
 };
 
 type Params = { token: string };
@@ -150,7 +165,14 @@ export default async function TripSummaryPage({
                   key={idx}
                   className="flex items-center justify-between py-2 text-sm"
                 >
-                  <span>{p.full_name}</span>
+                  <span>
+                    {p.full_name}
+                    {p.nationality && (
+                      <span className="ml-2 text-xs text-zinc-500">
+                        ({p.nationality})
+                      </span>
+                    )}
+                  </span>
                   <span className="text-xs text-zinc-500">
                     {PASSENGER_TYPE_LABELS[p.passenger_type] ?? p.passenger_type}
                   </span>
@@ -168,20 +190,40 @@ export default async function TripSummaryPage({
                 value={summary.reservation.reservation_code}
               />
               <Detail label="Operador" value={summary.reservation.operator_name} />
-              {summary.reservation.notes && (
-                <p className="whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
-                  {summary.reservation.notes}
-                </p>
-              )}
             </div>
           </Section>
         )}
 
-        {summary.request.notes && (
-          <Section title="Notas">
-            <p className="whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
-              {summary.request.notes}
+        {summary.documents.length > 0 && (
+          <Section title="Documentos">
+            <p className="mb-3 text-xs text-zinc-500">
+              Vouchers, facturas y archivos de tu viaje. Hacé click para descargar.
             </p>
+            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {summary.documents.map((d) => (
+                <li
+                  key={d.id}
+                  className="flex items-center justify-between gap-3 py-2 text-sm"
+                >
+                  <div className="flex flex-col">
+                    <a
+                      href={`/trip/${token}/file/${d.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      {d.file_name}
+                    </a>
+                    <span className="text-xs text-zinc-500">
+                      {ATTACHMENT_KIND_LABELS[d.kind] ?? d.kind}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-xs text-zinc-500">
+                    {formatBytes(d.size_bytes)}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </Section>
         )}
 

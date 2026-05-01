@@ -3,9 +3,21 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { StatusBadge } from "@/components/status-badge";
 import { BspBadge } from "@/components/bsp-badge";
-import { formatDateRange, totalPax } from "@/lib/requests";
+import { formatDateRange, totalPax, type RequestStatus } from "@/lib/requests";
 
 export const metadata = { title: "Solicitudes recibidas — Travel Desk" };
+
+// Datos del cliente solo se exponen al operador una vez que la agencia aceptó
+// (total o parcial). Antes de eso solo ve datos de viaje, no quién es.
+const clientVisibleStatuses = new Set<RequestStatus>([
+  "accepted",
+  "partially_accepted",
+  "reserved",
+  "docs_uploaded",
+  "issued",
+  "payment_pending",
+  "closed",
+]);
 
 export default async function OperatorRequestsListPage() {
   const tenant = await getCurrentTenant();
@@ -78,7 +90,9 @@ export default async function OperatorRequestsListPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3">{r.agency.name}</td>
-                    <td className="px-4 py-3">{r.client_name}</td>
+                    <td className="px-4 py-3 text-zinc-500">
+                      {clientVisibleStatuses.has(r.status) ? r.client_name : "—"}
+                    </td>
                     <td className="px-4 py-3">{r.destination}</td>
                     <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
                       {formatDateRange(r.departure_date, r.return_date, r.flexible_dates)}

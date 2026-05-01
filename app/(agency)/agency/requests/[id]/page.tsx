@@ -110,7 +110,7 @@ export default async function RequestDetailPage({
       ? supabase
           .from("passengers")
           .select(
-            "id, full_name, passenger_type, document_type, document_number, birth_date, email, phone, notes",
+            "id, full_name, passenger_type, document_type, document_number, birth_date, email, phone, notes, document_expiry_date, nationality, city",
           )
           .eq("quote_request_id", id)
           .order("created_at", { ascending: true })
@@ -162,6 +162,9 @@ export default async function RequestDetailPage({
     email: p.email,
     phone: p.phone,
     notes: p.notes,
+    documentExpiryDate: p.document_expiry_date,
+    nationality: p.nationality,
+    city: p.city,
   }));
 
   const attachmentsByPassenger: Record<string, AttachmentRow[]> = {};

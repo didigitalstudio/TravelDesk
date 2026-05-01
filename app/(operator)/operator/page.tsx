@@ -162,7 +162,7 @@ export default async function OperatorHome() {
                     <span className="font-mono font-semibold">{d.request.code}</span>
                     <StatusBadge status={d.request.status} />
                     <span className="text-zinc-600 dark:text-zinc-400">
-                      {d.request.agency.name} · {d.request.client_name}
+                      {d.request.agency.name} · {d.request.destination}
                     </span>
                   </div>
                   <span className="text-xs text-zinc-400">

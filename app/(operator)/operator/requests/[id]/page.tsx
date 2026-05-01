@@ -242,12 +242,14 @@ export default async function OperatorRequestDetailPage({
         </Link>
       </div>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Box title="Cliente">
-          <Detail label="Nombre" value={request.client_name} />
-          <Detail label="Email" value={request.client_email ?? "—"} />
-          <Detail label="Teléfono" value={request.client_phone ?? "—"} />
-        </Box>
+      <section className={`grid gap-4 ${showPassengers ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+        {showPassengers && (
+          <Box title="Cliente">
+            <Detail label="Nombre" value={request.client_name} />
+            <Detail label="Email" value={request.client_email ?? "—"} />
+            <Detail label="Teléfono" value={request.client_phone ?? "—"} />
+          </Box>
+        )}
 
         <Box title="Viaje">
           <Detail label="Destino" value={request.destination} />

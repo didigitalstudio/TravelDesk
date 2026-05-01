@@ -52,19 +52,14 @@ export function requestDispatchedEmail(input: {
   agencyName: string;
   requestCode: string;
   destination: string;
-  clientName: string;
   detailUrl: string;
 }): { subject: string; html: string } {
   return {
     subject: `Nueva solicitud ${input.requestCode} de ${input.agencyName}`,
     html: shell({
       title: `Nueva solicitud ${escapeHtml(input.requestCode)}`,
-      body: `<p>${escapeHtml(input.agencyName)} te envió una solicitud de cotización.</p>
-             <ul style="padding-left:18px;margin:8px 0;">
-               <li>Cliente: <strong>${escapeHtml(input.clientName)}</strong></li>
-               <li>Destino: <strong>${escapeHtml(input.destination)}</strong></li>
-             </ul>
-             <p>Entrá al expediente para cotizar.</p>`,
+      body: `<p>${escapeHtml(input.agencyName)} te envió una solicitud de cotización para <strong>${escapeHtml(input.destination)}</strong>.</p>
+             <p>Entrá al expediente para ver los detalles del viaje y cotizar.</p>`,
       ctaLabel: "Ver solicitud",
       ctaHref: input.detailUrl,
     }),
@@ -139,7 +134,7 @@ export function clientTripSummaryEmail(input: {
     html: shell({
       title: `Hola ${escapeHtml(input.clientName)} — resumen de tu viaje`,
       body: `<p>Te compartimos el resumen de tu viaje a <strong>${escapeHtml(input.destination)}</strong>.</p>
-             <p>Podés consultar el itinerario, los pasajeros y los datos de la reserva en cualquier momento desde el link de abajo.</p>`,
+             <p>Desde el link vas a poder ver el itinerario, los pasajeros, los datos de la reserva y descargar los vouchers, factura y demás documentos del viaje cuando estén disponibles.</p>`,
       ctaLabel: "Ver mi viaje",
       ctaHref: input.summaryUrl,
     }),
