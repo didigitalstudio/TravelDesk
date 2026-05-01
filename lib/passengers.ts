@@ -20,6 +20,15 @@ export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
   payment_receipt: "Comprobante de pago",
 };
 
+function randomToken(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  }
+  // Fallback solo para entornos antiguos. crypto.randomUUID está en todos los
+  // navegadores modernos (Chrome 92+, Safari 15.4+, FF 95+) y Node 19+.
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function buildAttachmentPath(
   agencyId: string,
   requestId: string,
@@ -27,8 +36,7 @@ export function buildAttachmentPath(
   fileName: string,
 ): string {
   const safe = fileName.replace(/[^\w.\-]/g, "_");
-  const uniq = Math.random().toString(36).slice(2, 10);
-  return `${agencyId}/${requestId}/${kind}/${uniq}-${safe}`;
+  return `${agencyId}/${requestId}/${kind}/${randomToken()}-${safe}`;
 }
 
 export function formatBytes(bytes: number | null | undefined): string {
