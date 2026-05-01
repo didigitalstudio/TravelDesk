@@ -86,8 +86,11 @@ export default async function OperatorHome() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{tenant.operatorName}</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Operador</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-50">
+          {tenant.operatorName}
+        </h1>
+        <p className="mt-1 text-sm text-zinc-400">
           Resumen de tus cotizaciones y cobros.
         </p>
       </div>
@@ -95,37 +98,40 @@ export default async function OperatorHome() {
       {pendingCount > 0 && (
         <Link
           href="/operator/agencies"
-          className="block rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
+          className="surface block border-amber-500/30 bg-amber-500/[0.06] p-4 text-sm transition-colors hover:bg-amber-500/[0.1]"
         >
-          <strong>
+          <strong className="text-amber-200">
             Tenés {pendingCount} invitación{pendingCount === 1 ? "" : "es"} pendiente
             {pendingCount === 1 ? "" : "s"}.
           </strong>{" "}
-          <span className="text-zinc-600 dark:text-zinc-400">Revisalas y aceptá las que quieras.</span>
+          <span className="text-zinc-400">Revisalas y aceptá las que quieras.</span>
         </Link>
       )}
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Para cotizar" value={String(openCount)} />
+        <Stat label="Para cotizar" value={String(openCount)} tone="accent" />
         <Stat label="Cotizaciones activas" value={String(submittedCount)} />
         <Stat
           label="Tasa de aceptación"
           value={totalQuoted > 0 ? `${conversionRate}%` : "—"}
           hint={`${acceptedCount} de ${totalQuoted}`}
+          tone="ok"
         />
         <Stat label="Por cobrar" value={formatTotals(pendingTotals)} tone="warn" />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 lg:col-span-2">
-          <h2 className="mb-3 text-sm font-semibold">Cotizaciones por estado</h2>
+        <div className="surface p-5 lg:col-span-2">
+          <h2 className="mb-3 text-sm font-semibold text-zinc-100">
+            Cotizaciones por estado
+          </h2>
           <ul className="space-y-2 text-sm">
             {Object.entries(quoteCounts).map(([status, count]) => (
               <li key={status} className="flex items-center justify-between">
-                <span className="text-zinc-600 dark:text-zinc-400">
+                <span className="text-zinc-400">
                   {QUOTE_STATUS_LABELS[status as QuoteStatus]}
                 </span>
-                <span className="font-mono">{count}</span>
+                <span className="font-mono text-zinc-200">{count}</span>
               </li>
             ))}
             {Object.keys(quoteCounts).length === 0 && (
@@ -133,22 +139,21 @@ export default async function OperatorHome() {
             )}
           </ul>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-3 text-sm font-semibold">Cobros verificados</h2>
-          <p className="font-mono text-lg">{formatTotals(verifiedTotals)}</p>
-          <Link
-            href="/operator/payments"
-            className="mt-3 inline-block text-xs text-zinc-500 hover:underline"
-          >
+        <div className="surface p-5">
+          <h2 className="mb-3 text-sm font-semibold text-zinc-100">Cobros verificados</h2>
+          <p className="font-mono text-xl text-emerald-300">{formatTotals(verifiedTotals)}</p>
+          <Link href="/operator/payments" className="accent-link mt-3 inline-block text-xs">
             Ver detalle →
           </Link>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
-          <h2 className="text-sm font-semibold">Últimas solicitudes recibidas</h2>
-          <Link href="/operator/requests" className="text-xs text-zinc-500 hover:underline">
+      <section className="surface overflow-hidden">
+        <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
+          <h2 className="text-sm font-semibold text-zinc-100">
+            Últimas solicitudes recibidas
+          </h2>
+          <Link href="/operator/requests" className="accent-link text-xs">
             Ver todas →
           </Link>
         </div>
@@ -157,21 +162,23 @@ export default async function OperatorHome() {
             No te llegaron solicitudes todavía.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          <ul className="divide-y divide-white/[0.05]">
             {dispatchList.map((d) => (
               <li key={d.request.id}>
                 <Link
                   href={`/operator/requests/${d.request.id}`}
-                  className="flex items-center justify-between px-5 py-2.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                  className="flex items-center justify-between px-5 py-2.5 text-sm transition-colors hover:bg-white/[0.03]"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="font-mono font-semibold">{d.request.code}</span>
+                    <span className="font-mono font-semibold text-zinc-100">
+                      {d.request.code}
+                    </span>
                     <StatusBadge status={d.request.status} />
-                    <span className="text-zinc-600 dark:text-zinc-400">
+                    <span className="text-zinc-400">
                       {d.request.agency.name} · {d.request.destination}
                     </span>
                   </div>
-                  <span className="text-xs text-zinc-400">
+                  <span className="text-xs text-zinc-500">
                     {new Date(d.sent_at).toLocaleDateString("es-AR")}
                   </span>
                 </Link>
@@ -193,19 +200,31 @@ function Stat({
   label: string;
   value: string;
   hint?: string;
-  tone?: "warn" | "ok";
+  tone?: "warn" | "ok" | "accent";
 }) {
   const color =
     tone === "ok"
-      ? "text-emerald-700 dark:text-emerald-400"
+      ? "text-emerald-300"
       : tone === "warn"
-        ? "text-amber-800 dark:text-amber-400"
-        : "";
+        ? "text-amber-300"
+        : tone === "accent"
+          ? "text-[color:var(--accent-strong)]"
+          : "text-zinc-100";
+  const glow =
+    tone === "ok"
+      ? "before:bg-emerald-500/10"
+      : tone === "warn"
+        ? "before:bg-amber-500/10"
+        : tone === "accent"
+          ? "before:bg-indigo-500/10"
+          : "before:bg-white/[0.02]";
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="text-xs uppercase tracking-wider text-zinc-500">{label}</div>
-      <div className={`mt-1 font-mono text-xl font-semibold ${color}`}>{value}</div>
-      {hint && <div className="mt-0.5 text-[11px] text-zinc-400">{hint}</div>}
+    <div
+      className={`surface relative overflow-hidden p-4 before:pointer-events-none before:absolute before:right-[-30%] before:top-[-30%] before:h-32 before:w-32 before:rounded-full before:blur-3xl ${glow}`}
+    >
+      <div className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">{label}</div>
+      <div className={`mt-1.5 font-mono text-2xl font-semibold ${color}`}>{value}</div>
+      {hint && <div className="mt-0.5 text-[11px] text-zinc-500">{hint}</div>}
     </div>
   );
 }

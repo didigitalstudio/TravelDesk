@@ -1,8 +1,18 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { PortalHeader } from "@/components/portal-header";
+
+const NAV_ITEMS = [
+  { href: "/agency", label: "Inicio" },
+  { href: "/agency/requests", label: "Solicitudes" },
+  { href: "/agency/clients", label: "Clientes" },
+  { href: "/agency/operators", label: "Operadores" },
+  { href: "/agency/payments", label: "Pagos" },
+  { href: "/agency/telegram", label: "Telegram" },
+  { href: "/agency/integrations", label: "Integraciones" },
+];
 
 export default async function AgencyLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -23,41 +33,13 @@ export default async function AgencyLayout({ children }: { children: React.React
     .limit(20);
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-2">
-            <Link href="/agency" className="text-base font-semibold tracking-tight">
-              Travel Desk
-            </Link>
-            <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-              <Link href="/agency" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Inicio
-              </Link>
-              <Link href="/agency/requests" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Solicitudes
-              </Link>
-              <Link href="/agency/clients" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Clientes
-              </Link>
-              <Link href="/agency/operators" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Operadores
-              </Link>
-              <Link href="/agency/payments" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Pagos
-              </Link>
-              <Link href="/agency/telegram" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Telegram
-              </Link>
-              <Link href="/agency/integrations" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Integraciones
-              </Link>
-              <span className="hidden text-xs uppercase tracking-wider text-zinc-400 lg:inline">
-                Portal Agencia
-              </span>
-            </nav>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
+    <div className="min-h-screen">
+      <PortalHeader
+        brandHref="/agency"
+        portalLabel="Portal Agencia"
+        navItems={NAV_ITEMS}
+        rightSlot={
+          <>
             <NotificationsBell
               initial={(notifs ?? []).map((n) => ({
                 id: n.id,
@@ -69,20 +51,18 @@ export default async function AgencyLayout({ children }: { children: React.React
                 createdAt: n.created_at,
               }))}
             />
-            <span className="hidden text-zinc-500 sm:inline">{tenant.agencyName}</span>
-            <span className="text-zinc-300 dark:text-zinc-700">·</span>
-            <span className="text-zinc-600 dark:text-zinc-400">{user.email}</span>
+            <div className="hidden flex-col items-end leading-tight sm:flex">
+              <span className="text-xs font-medium text-zinc-200">{tenant.agencyName}</span>
+              <span className="text-[11px] text-zinc-500">{user.email}</span>
+            </div>
             <form action="/auth/signout" method="post">
-              <button
-                type="submit"
-                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-              >
+              <button type="submit" className="btn-ghost">
                 Salir
               </button>
             </form>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
       <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
     </div>
   );

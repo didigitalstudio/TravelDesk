@@ -1,26 +1,188 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0b;
+  --foreground: #ededed;
+
+  /* Surface scale: lo más cercano al bg es 0, va elevando con cada capa */
+  --surface-0: #0a0a0b;
+  --surface-1: #111114;
+  --surface-2: #16161a;
+  --surface-3: #1c1c22;
+
+  /* Borders sutiles, tienen un toque de cool tone */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Accent: indigo-violet de Apple-vibe */
+  --accent: #818cf8;
+  --accent-strong: #a5b4fc;
+  --accent-soft: rgba(129, 140, 248, 0.12);
+  --accent-ring: rgba(129, 140, 248, 0.4);
+
+  /* Tonos de feedback */
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html.dark {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(at 20% 0%, rgba(129, 140, 248, 0.08) 0%, transparent 45%),
+    radial-gradient(at 90% 90%, rgba(167, 139, 250, 0.06) 0%, transparent 50%),
+    var(--background);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01", "ss03";
+}
+
+/* ---------- Component utilities ---------- */
+
+.surface {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025) 0%,
+    rgba(255, 255, 255, 0.005) 100%
+  ),
+  var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: 1rem;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+    0 1px 0 0 rgba(0, 0, 0, 0.4);
+}
+
+.surface-elevated {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.01) 100%
+  ),
+  var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 1rem;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    0 8px 32px -12px rgba(0, 0, 0, 0.6);
+}
+
+.surface-flat {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+}
+
+.divider {
+  border-color: var(--border-subtle);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #0a0a0b;
+  font-weight: 600;
+  border-radius: 0.625rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  transition: background 120ms ease, transform 80ms ease;
+}
+.btn-primary:hover {
+  background: var(--accent-strong);
+}
+.btn-primary:active {
+  transform: scale(0.98);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--foreground);
+  border-radius: 0.625rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8125rem;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border-strong);
+}
+
+.input-base {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--foreground);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+  width: 100%;
+}
+.input-base:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--border-subtle);
+}
+
+.accent-link {
+  color: var(--accent-strong);
+  transition: color 120ms ease;
+}
+.accent-link:hover {
+  color: var(--accent);
+}
+
+/* Subtle scrollbar para que combine con el dark */
+@supports selector(::-webkit-scrollbar) {
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }

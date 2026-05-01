@@ -92,39 +92,46 @@ export default async function AgencyHome() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{tenant.agencyName}</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Agencia</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-50">
+          {tenant.agencyName}
+        </h1>
+        <p className="mt-1 text-sm text-zinc-400">
           Resumen de la actividad de tu agencia.
         </p>
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Solicitudes activas" value={String(activeCount)} hint={`Total: ${totalCount}`} />
+        <Stat
+          label="Solicitudes activas"
+          value={String(activeCount)}
+          hint={`Total: ${totalCount}`}
+          tone="accent"
+        />
         <Stat label="A pagar a operadores" value={formatTotals(pendingTotals)} tone="warn" />
         <Stat label="Pagos verificados" value={formatTotals(verifiedTotals)} tone="ok" />
         <Stat label="Clientes" value={String(clientsCount ?? 0)} />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 lg:col-span-2">
-          <h2 className="mb-3 text-sm font-semibold">Solicitudes últimos 6 meses</h2>
+        <div className="surface p-5 lg:col-span-2">
+          <h2 className="mb-3 text-sm font-semibold text-zinc-100">
+            Solicitudes últimos 6 meses
+          </h2>
           <BarChart data={monthly} />
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-3 text-sm font-semibold">Por estado</h2>
+        <div className="surface p-5">
+          <h2 className="mb-3 text-sm font-semibold text-zinc-100">Por estado</h2>
           <ul className="space-y-2 text-sm">
             {Object.entries(statusCounts)
               .sort((a, b) => b[1] - a[1])
               .map(([status, count]) => (
-                <li
-                  key={status}
-                  className="flex items-center justify-between"
-                >
-                  <span className="text-zinc-600 dark:text-zinc-400">
+                <li key={status} className="flex items-center justify-between">
+                  <span className="text-zinc-400">
                     {STATUS_LABELS[status as RequestStatus]}
                   </span>
-                  <span className="font-mono">{count}</span>
+                  <span className="font-mono text-zinc-200">{count}</span>
                 </li>
               ))}
           </ul>
@@ -132,25 +139,23 @@ export default async function AgencyHome() {
       </section>
 
       {bspUpcoming && bspUpcoming.length > 0 && (
-        <section className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
-            <h2 className="text-sm font-semibold">Próximos vencimientos BSP</h2>
-            <Link href="/agency/payments" className="text-xs text-zinc-500 hover:underline">
+        <section className="surface overflow-hidden">
+          <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
+            <h2 className="text-sm font-semibold text-zinc-100">Próximos vencimientos BSP</h2>
+            <Link href="/agency/payments" className="accent-link text-xs">
               Ver pagos →
             </Link>
           </div>
-          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          <ul className="divide-y divide-white/[0.05]">
             {bspUpcoming.map((r) => (
               <li key={r.id}>
                 <Link
                   href={`/agency/requests/${r.id}`}
-                  className="flex items-center justify-between px-5 py-2.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                  className="flex items-center justify-between px-5 py-2.5 text-sm transition-colors hover:bg-white/[0.03]"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="font-mono font-semibold">{r.code}</span>
-                    <span className="text-zinc-600 dark:text-zinc-400">
-                      {r.client_name}
-                    </span>
+                    <span className="font-mono font-semibold text-zinc-100">{r.code}</span>
+                    <span className="text-zinc-400">{r.client_name}</span>
                   </div>
                   <BspBadge dueDate={r.bsp_due_date} variant="full" />
                 </Link>
@@ -160,31 +165,31 @@ export default async function AgencyHome() {
         </section>
       )}
 
-      <section className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
-          <h2 className="text-sm font-semibold">Últimas solicitudes</h2>
-          <Link href="/agency/requests" className="text-xs text-zinc-500 hover:underline">
+      <section className="surface overflow-hidden">
+        <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
+          <h2 className="text-sm font-semibold text-zinc-100">Últimas solicitudes</h2>
+          <Link href="/agency/requests" className="accent-link text-xs">
             Ver todas →
           </Link>
         </div>
         {recent.length === 0 ? (
           <p className="px-5 py-6 text-sm text-zinc-500">Sin solicitudes todavía.</p>
         ) : (
-          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          <ul className="divide-y divide-white/[0.05]">
             {recent.map((r) => (
               <li key={r.id}>
                 <Link
                   href={`/agency/requests/${r.id}`}
-                  className="flex items-center justify-between px-5 py-2.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                  className="flex items-center justify-between px-5 py-2.5 text-sm transition-colors hover:bg-white/[0.03]"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="font-mono font-semibold">{r.code}</span>
+                    <span className="font-mono font-semibold text-zinc-100">{r.code}</span>
                     <StatusBadge status={r.status} />
-                    <span className="text-zinc-600 dark:text-zinc-400">
+                    <span className="text-zinc-400">
                       {r.client_name} · {r.destination}
                     </span>
                   </div>
-                  <span className="text-xs text-zinc-400">
+                  <span className="text-xs text-zinc-500">
                     {new Date(r.created_at).toLocaleDateString("es-AR")}
                   </span>
                 </Link>
@@ -206,19 +211,31 @@ function Stat({
   label: string;
   value: string;
   hint?: string;
-  tone?: "warn" | "ok";
+  tone?: "warn" | "ok" | "accent";
 }) {
   const color =
     tone === "ok"
-      ? "text-emerald-700 dark:text-emerald-400"
+      ? "text-emerald-300"
       : tone === "warn"
-        ? "text-amber-800 dark:text-amber-400"
-        : "";
+        ? "text-amber-300"
+        : tone === "accent"
+          ? "text-[color:var(--accent-strong)]"
+          : "text-zinc-100";
+  const glow =
+    tone === "ok"
+      ? "before:bg-emerald-500/10"
+      : tone === "warn"
+        ? "before:bg-amber-500/10"
+        : tone === "accent"
+          ? "before:bg-indigo-500/10"
+          : "before:bg-white/[0.02]";
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="text-xs uppercase tracking-wider text-zinc-500">{label}</div>
-      <div className={`mt-1 font-mono text-xl font-semibold ${color}`}>{value}</div>
-      {hint && <div className="mt-0.5 text-[11px] text-zinc-400">{hint}</div>}
+    <div
+      className={`surface relative overflow-hidden p-4 before:pointer-events-none before:absolute before:right-[-30%] before:top-[-30%] before:h-32 before:w-32 before:rounded-full before:blur-3xl ${glow}`}
+    >
+      <div className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">{label}</div>
+      <div className={`mt-1.5 font-mono text-2xl font-semibold ${color}`}>{value}</div>
+      {hint && <div className="mt-0.5 text-[11px] text-zinc-500">{hint}</div>}
     </div>
   );
 }
@@ -253,22 +270,27 @@ function BarChart({ data }: { data: { label: string; count: number }[] }) {
   const total = data.reduce((acc, d) => acc + d.count, 0);
   if (total === 0) {
     return (
-      <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-4 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/30">
+      <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-white/[0.08] bg-white/[0.015] px-4 text-center text-xs text-zinc-500">
         Cuando empieces a cargar solicitudes vas a ver acá la tendencia mensual.
       </div>
     );
   }
   const max = Math.max(1, ...data.map((d) => d.count));
   return (
-    <div className="flex h-32 items-end gap-2">
+    <div className="flex h-36 items-end gap-2">
       {data.map((d) => (
-        <div key={d.label} className="flex flex-1 flex-col items-center gap-1">
-          <div className="text-[10px] text-zinc-500">{d.count}</div>
+        <div key={d.label} className="flex flex-1 flex-col items-center gap-1.5">
+          <div className="text-[10px] font-mono text-zinc-400">{d.count}</div>
           <div
-            className="w-full rounded-t bg-blue-500/70"
-            style={{ height: `${(d.count / max) * 100}%`, minHeight: d.count > 0 ? 4 : 0 }}
+            className="w-full rounded-md bg-gradient-to-t from-indigo-500/40 via-indigo-400/70 to-indigo-300 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25)]"
+            style={{
+              height: `${(d.count / max) * 100}%`,
+              minHeight: d.count > 0 ? 4 : 0,
+            }}
           />
-          <div className="text-[10px] uppercase text-zinc-500">{d.label}</div>
+          <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+            {d.label}
+          </div>
         </div>
       ))}
     </div>
