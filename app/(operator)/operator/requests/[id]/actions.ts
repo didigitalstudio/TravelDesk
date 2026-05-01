@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Currency } from "@/lib/requests";
+import { formatMoney, type Currency } from "@/lib/requests";
+import { sendMailSafe } from "@/lib/mail/send";
+import { quoteSubmittedEmail } from "@/lib/mail/templates";
+import { agencyEmails } from "@/lib/mail/recipients";
+import { getOrigin } from "@/lib/invite";
 
 export type QuoteItemInput = { description: string; amount: number };
 
@@ -45,7 +49,46 @@ export async function submitQuote(
   if (error) return { ok: false, message: error.message };
   revalidatePath(`/operator/requests/${input.requestId}`);
   revalidatePath("/operator/requests");
+  await notifyQuoteSubmitted(input.requestId, input.totalAmount, input.currency);
   return { ok: true };
+}
+
+async function notifyQuoteSubmitted(
+  requestId: string,
+  totalAmount: number,
+  currency: Currency,
+): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const origin = await getOrigin();
+    const { data: req } = await supabase
+      .from("quote_requests")
+      .select("agency_id, code, agency:agencies!inner(name)")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (!req) return;
+
+    // Resolver el operador del current user para incluirlo en el subject.
+    const { data: dispatch } = await supabase
+      .from("quote_request_dispatches")
+      .select("operator:operators!inner(name)")
+      .eq("quote_request_id", requestId)
+      .limit(1)
+      .maybeSingle();
+
+    const emails = await agencyEmails(req.agency_id);
+    if (emails.length === 0) return;
+
+    const tpl = quoteSubmittedEmail({
+      operatorName: dispatch?.operator.name ?? "El operador",
+      requestCode: req.code,
+      totalLabel: formatMoney(totalAmount, currency),
+      detailUrl: `${origin}/agency/requests/${requestId}`,
+    });
+    await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+  } catch (e) {
+    if (process.env.NODE_ENV !== "production") console.warn("[mail] notifyQuoteSubmitted", e);
+  }
 }
 
 export async function withdrawQuote(

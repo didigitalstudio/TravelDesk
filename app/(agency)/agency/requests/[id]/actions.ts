@@ -2,6 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { sendMailSafe } from "@/lib/mail/send";
+import {
+  clientTripSummaryEmail,
+  paymentReceiptUploadedEmail,
+  quoteAcceptedEmail,
+  requestDispatchedEmail,
+} from "@/lib/mail/templates";
+import { operatorEmails } from "@/lib/mail/recipients";
+import { getOrigin } from "@/lib/invite";
+import { formatMoney } from "@/lib/requests";
 
 export async function acceptQuote(
   quoteId: string,
@@ -12,6 +22,7 @@ export async function acceptQuote(
   if (error) return { ok: false, message: error.message };
   revalidatePath(`/agency/requests/${requestId}`);
   revalidatePath("/agency/requests");
+  await notifyQuoteAccepted(quoteId, requestId, false);
   return { ok: true };
 }
 
@@ -31,6 +42,7 @@ export async function acceptQuoteItems(
   if (error) return { ok: false, message: error.message };
   revalidatePath(`/agency/requests/${requestId}`);
   revalidatePath("/agency/requests");
+  await notifyQuoteAccepted(quoteId, requestId, true);
   return { ok: true };
 }
 
@@ -60,6 +72,7 @@ export async function dispatchToOperators(
   if (error) return { ok: false, message: error.message };
   revalidatePath(`/agency/requests/${requestId}`);
   revalidatePath("/agency/requests");
+  await notifyDispatch(requestId, operatorIds);
   return { ok: true };
 }
 
@@ -86,6 +99,7 @@ export async function registerPaymentReceipt(
   if (error) return { ok: false, message: error.message };
   revalidatePath(`/agency/requests/${requestId}`);
   revalidatePath("/agency/payments");
+  await notifyPaymentReceiptUploaded(requestId);
   return { ok: true };
 }
 
@@ -148,4 +162,139 @@ export async function getPaymentReceiptSignedUrl(
     .createSignedUrl(storagePath, 60);
   if (error) return { ok: false, message: error.message };
   return { ok: true, url: data.signedUrl };
+}
+
+// ============================================================================
+// Mail notifications (mejor esfuerzo: nunca rompen el flow del action)
+// ============================================================================
+
+async function notifyDispatch(requestId: string, operatorIds: string[]): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const origin = await getOrigin();
+    const { data: req } = await supabase
+      .from("quote_requests")
+      .select("code, destination, client_name, agency:agencies!inner(name)")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (!req) return;
+    const detailUrl = `${origin}/operator/requests/${requestId}`;
+    for (const opId of operatorIds) {
+      const emails = await operatorEmails(opId);
+      if (emails.length === 0) continue;
+      const tpl = requestDispatchedEmail({
+        agencyName: req.agency.name,
+        requestCode: req.code,
+        destination: req.destination,
+        clientName: req.client_name,
+        detailUrl,
+      });
+      await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+    }
+  } catch (e) {
+    if (process.env.NODE_ENV !== "production") console.warn("[mail] notifyDispatch", e);
+  }
+}
+
+async function notifyQuoteAccepted(quoteId: string, requestId: string, partial: boolean): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const origin = await getOrigin();
+    const { data: quote } = await supabase
+      .from("quotes")
+      .select("operator_id, request:quote_requests!inner(code, agency:agencies!inner(name))")
+      .eq("id", quoteId)
+      .maybeSingle();
+    if (!quote) return;
+    const emails = await operatorEmails(quote.operator_id);
+    if (emails.length === 0) return;
+    const tpl = quoteAcceptedEmail({
+      agencyName: quote.request.agency.name,
+      requestCode: quote.request.code,
+      isPartial: partial,
+      detailUrl: `${origin}/operator/requests/${requestId}`,
+    });
+    await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+  } catch (e) {
+    if (process.env.NODE_ENV !== "production") console.warn("[mail] notifyQuoteAccepted", e);
+  }
+}
+
+export async function generateClientSummaryToken(
+  requestId: string,
+): Promise<{ ok: boolean; token?: string; message?: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("generate_client_summary_token", {
+    p_request_id: requestId,
+  });
+  if (error) return { ok: false, message: error.message };
+  revalidatePath(`/agency/requests/${requestId}`);
+  return { ok: true, token: data ?? undefined };
+}
+
+export async function revokeClientSummaryToken(
+  requestId: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("revoke_client_summary_token", {
+    p_request_id: requestId,
+  });
+  if (error) return { ok: false, message: error.message };
+  revalidatePath(`/agency/requests/${requestId}`);
+  return { ok: true };
+}
+
+export async function sendClientSummaryEmail(
+  requestId: string,
+  toEmail: string,
+): Promise<{ ok: boolean; message?: string }> {
+  if (!/^\S+@\S+\.\S+$/.test(toEmail)) {
+    return { ok: false, message: "Email inválido." };
+  }
+  const supabase = await createClient();
+  const { data: req } = await supabase
+    .from("quote_requests")
+    .select(
+      "client_summary_token, client_name, destination, agency:agencies!inner(name)",
+    )
+    .eq("id", requestId)
+    .maybeSingle();
+  if (!req?.client_summary_token) {
+    return { ok: false, message: "Generá el link primero." };
+  }
+  const origin = await getOrigin();
+  const tpl = clientTripSummaryEmail({
+    agencyName: req.agency.name,
+    clientName: req.client_name,
+    destination: req.destination,
+    summaryUrl: `${origin}/trip/${req.client_summary_token}`,
+  });
+  const { sendMail } = await import("@/lib/mail/send");
+  const res = await sendMail({ to: toEmail, subject: tpl.subject, html: tpl.html });
+  if (!res.ok) return { ok: false, message: res.error ?? "No se pudo enviar." };
+  return { ok: true };
+}
+
+async function notifyPaymentReceiptUploaded(requestId: string): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const origin = await getOrigin();
+    const { data: payment } = await supabase
+      .from("payments")
+      .select("operator_id, amount, currency, request:quote_requests!inner(code, agency:agencies!inner(name))")
+      .eq("quote_request_id", requestId)
+      .maybeSingle();
+    if (!payment) return;
+    const emails = await operatorEmails(payment.operator_id);
+    if (emails.length === 0) return;
+    const tpl = paymentReceiptUploadedEmail({
+      agencyName: payment.request.agency.name,
+      requestCode: payment.request.code,
+      amountLabel: formatMoney(Number(payment.amount), payment.currency),
+      detailUrl: `${origin}/operator/requests/${requestId}`,
+    });
+    await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+  } catch (e) {
+    if (process.env.NODE_ENV !== "production") console.warn("[mail] notifyPaymentReceiptUploaded", e);
+  }
 }

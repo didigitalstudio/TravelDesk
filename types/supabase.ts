@@ -638,6 +638,7 @@ export type Database = {
           client_id: string | null
           client_name: string
           client_phone: string | null
+          client_summary_token: string | null
           code: string
           created_at: string
           created_by: string | null
@@ -662,6 +663,7 @@ export type Database = {
           client_id?: string | null
           client_name: string
           client_phone?: string | null
+          client_summary_token?: string | null
           code: string
           created_at?: string
           created_by?: string | null
@@ -686,6 +688,7 @@ export type Database = {
           client_id?: string | null
           client_name?: string
           client_phone?: string | null
+          client_summary_token?: string | null
           code?: string
           created_at?: string
           created_by?: string | null
@@ -852,6 +855,7 @@ export type Database = {
         Args: { p_item_ids: string[]; p_quote_id: string }
         Returns: undefined
       }
+      agency_member_emails: { Args: { p_agency_id: string }; Returns: string[] }
       cancel_quote_request: {
         Args: { p_notes?: string; p_request_id: string }
         Returns: undefined
@@ -901,6 +905,10 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      generate_client_summary_token: {
+        Args: { p_request_id: string }
+        Returns: string
+      }
       get_invitation_preview: {
         Args: { p_token: string }
         Returns: {
@@ -912,6 +920,7 @@ export type Database = {
           status: Database["public"]["Enums"]["invitation_status"]
         }[]
       }
+      get_trip_summary: { Args: { p_token: string }; Returns: Json }
       is_agency_admin: { Args: { p_agency_id: string }; Returns: boolean }
       is_agency_member: { Args: { p_agency_id: string }; Returns: boolean }
       is_operator_admin: { Args: { p_operator_id: string }; Returns: boolean }
@@ -923,6 +932,10 @@ export type Database = {
       mark_request_issued: {
         Args: { p_request_id: string }
         Returns: undefined
+      }
+      operator_member_emails: {
+        Args: { p_operator_id: string }
+        Returns: string[]
       }
       pending_invitations_for_email: {
         Args: { p_email: string }
@@ -955,6 +968,10 @@ export type Database = {
         Returns: undefined
       }
       reject_quote: { Args: { p_quote_id: string }; Returns: undefined }
+      revoke_client_summary_token: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       revoke_invitation: {
         Args: { p_invitation_id: string }
         Returns: undefined

@@ -29,6 +29,8 @@ import {
   PaymentPanel,
   type PaymentReceiptAttachment,
 } from "./payment-panel";
+import { ClientSummaryPanel } from "./client-summary-panel";
+import { getOrigin } from "@/lib/invite";
 
 export const metadata = { title: "Solicitud — Travel Desk" };
 
@@ -437,6 +439,15 @@ export default async function RequestDetailPage({
         <IssuanceView
           attachments={issuanceAttachments}
           issuedAt={request.issued_at}
+        />
+      )}
+
+      {acceptanceReached && (
+        <ClientSummaryPanel
+          requestId={request.id}
+          initialToken={request.client_summary_token}
+          baseUrl={await getOrigin()}
+          clientEmail={request.client_email}
         />
       )}
 

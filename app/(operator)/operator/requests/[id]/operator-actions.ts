@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { AttachmentKind } from "@/lib/passengers";
+import { sendMailSafe } from "@/lib/mail/send";
+import { paymentVerifiedEmail } from "@/lib/mail/templates";
+import { agencyEmails } from "@/lib/mail/recipients";
+import { getOrigin } from "@/lib/invite";
 
 export async function upsertReservation(
   requestId: string,
@@ -93,5 +97,37 @@ export async function verifyPayment(
   revalidatePath(`/operator/requests/${requestId}`);
   revalidatePath(`/agency/requests/${requestId}`);
   revalidatePath("/operator/payments");
+  await notifyPaymentVerified(requestId);
   return { ok: true };
+}
+
+async function notifyPaymentVerified(requestId: string): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const origin = await getOrigin();
+    const { data: req } = await supabase
+      .from("quote_requests")
+      .select("agency_id, code")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (!req) return;
+
+    const { data: payment } = await supabase
+      .from("payments")
+      .select("operator:operators!inner(name)")
+      .eq("quote_request_id", requestId)
+      .maybeSingle();
+
+    const emails = await agencyEmails(req.agency_id);
+    if (emails.length === 0) return;
+
+    const tpl = paymentVerifiedEmail({
+      operatorName: payment?.operator.name ?? "El operador",
+      requestCode: req.code,
+      detailUrl: `${origin}/agency/requests/${requestId}`,
+    });
+    await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+  } catch (e) {
+    if (process.env.NODE_ENV !== "production") console.warn("[mail] notifyPaymentVerified", e);
+  }
 }

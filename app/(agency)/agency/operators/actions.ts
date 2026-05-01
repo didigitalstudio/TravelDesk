@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
+import { sendMailSafe } from "@/lib/mail/send";
+import { inviteOperatorLinkEmail } from "@/lib/mail/templates";
+import { buildInviteUrl } from "@/lib/invite";
 
 export type InviteState = {
   status: "idle" | "ok" | "error";
@@ -36,6 +39,19 @@ export async function inviteOperatorByEmail(
   if (error || !data) {
     return { status: "error", message: error?.message ?? "Error desconocido" };
   }
+
+  const { data: agency } = await supabase
+    .from("agencies")
+    .select("name")
+    .eq("id", tenant.agencyId)
+    .maybeSingle();
+
+  const inviteUrl = await buildInviteUrl(data.token);
+  const tpl = inviteOperatorLinkEmail({
+    agencyName: agency?.name ?? "Travel Desk",
+    inviteUrl,
+  });
+  await sendMailSafe({ to: email, subject: tpl.subject, html: tpl.html });
 
   revalidatePath("/agency/operators");
   return { status: "ok", token: data.token, email };
