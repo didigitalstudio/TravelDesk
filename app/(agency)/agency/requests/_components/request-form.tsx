@@ -48,12 +48,17 @@ export function RequestForm({
   const [flexible, setFlexible] = useState(initial?.flexible_dates ?? false);
   const [sendNow, setSendNow] = useState(mode === "create" && (operators?.length ?? 0) > 0);
 
-  const [clientId, setClientId] = useState<string | null>(initial?.client_id ?? null);
+  const initialClientId = initial?.client_id ?? null;
+  const [clientId, setClientId] = useState<string | null>(initialClientId);
   const [clientName, setClientName] = useState(initial?.client_name ?? "");
   const [clientEmail, setClientEmail] = useState(initial?.client_email ?? "");
   const [clientPhone, setClientPhone] = useState(initial?.client_phone ?? "");
 
   const isEdit = mode === "edit";
+  // Si el form arrancó con un client linkeado y el user lo limpió, se manda como
+  // un signal explícito para desvincular. Si el form arrancó sin cliente, esto
+  // queda false aunque el state sea null (no hay nada que desvincular).
+  const clientCleared = initialClientId !== null && clientId === null;
 
   function handleClientPick(c: ClientPickerData | null) {
     if (c) {
@@ -73,6 +78,7 @@ export function RequestForm({
           <input key={k} type="hidden" name={k} value={v} />
         ))}
       <input type="hidden" name="client_id" value={clientId ?? ""} />
+      <input type="hidden" name="client_cleared" value={clientCleared ? "1" : ""} />
       <Section title="Cliente final">
         <ClientPicker
           agencyId={agencyId}

@@ -107,10 +107,13 @@ export async function unregisterPaymentReceipt(
   requestId: string,
 ): Promise<{ ok: boolean; message?: string }> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("unregister_payment_receipt", {
+  const { data: paths, error } = await supabase.rpc("unregister_payment_receipt", {
     p_request_id: requestId,
   });
   if (error) return { ok: false, message: error.message };
+  if (paths && paths.length > 0) {
+    await supabase.storage.from("attachments").remove(paths);
+  }
   revalidatePath(`/agency/requests/${requestId}`);
   revalidatePath("/agency/payments");
   return { ok: true };

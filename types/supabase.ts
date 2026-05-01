@@ -1149,6 +1149,14 @@ export type Database = {
         Returns: undefined
       }
       reject_quote: { Args: { p_quote_id: string }; Returns: undefined }
+      relayed_agency_member_emails: {
+        Args: { p_agency_id: string }
+        Returns: string[]
+      }
+      relayed_operator_member_emails: {
+        Args: { p_operator_id: string }
+        Returns: string[]
+      }
       revoke_client_summary_token: {
         Args: { p_request_id: string }
         Returns: undefined
@@ -1208,10 +1216,11 @@ export type Database = {
       }
       unregister_payment_receipt: {
         Args: { p_request_id: string }
-        Returns: undefined
+        Returns: string[]
       }
       update_quote_request: {
         Args: {
+          p_clear_client?: boolean
           p_client_email?: string
           p_client_id?: string
           p_client_name: string

@@ -34,7 +34,7 @@ export default async function AgencyHome() {
   const [
     { data: requests },
     { data: payments },
-    { data: clients },
+    { count: clientsCount },
     { data: bspUpcoming },
   ] = await Promise.all([
     supabase
@@ -92,7 +92,7 @@ export default async function AgencyHome() {
         <Stat label="Solicitudes activas" value={String(activeCount)} hint={`Total visto: ${reqList.length}+`} />
         <Stat label="A pagar a operadores" value={formatTotals(pendingTotals)} tone="warn" />
         <Stat label="Pagos verificados" value={formatTotals(verifiedTotals)} tone="ok" />
-        <Stat label="Clientes" value={String(clients?.length ?? clients ?? 0)} />
+        <Stat label="Clientes" value={String(clientsCount ?? 0)} />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-3">

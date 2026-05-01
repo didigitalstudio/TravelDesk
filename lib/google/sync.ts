@@ -23,15 +23,6 @@ export async function syncRequestAttachments(
   if (tokenErr) return { ok: false, message: tokenErr.message };
   if (!tokenData) return { ok: false, message: "Drive no está conectado." };
 
-  const { data: connData } = await supabase
-    .from("agency_google_drive_connections")
-    .select("drive_folder_id")
-    .eq("agency_id", agencyId)
-    .maybeSingle();
-  if (!connData?.drive_folder_id) {
-    return { ok: false, message: "Carpeta raíz de Drive no encontrada." };
-  }
-
   const { data: request } = await supabase
     .from("quote_requests")
     .select("code, client_name, destination")
@@ -52,7 +43,35 @@ export async function syncRequestAttachments(
   const syncedSet = new Set((synced ?? []).map((s) => s.attachment_id));
 
   const drive = driveClient(tokenData);
-  const root = connData.drive_folder_id;
+
+  // Re-asegurar la carpeta raíz cada vez (el user puede haberla borrado en Drive).
+  // Si difiere de la guardada, persistir la nueva.
+  let root: string;
+  try {
+    const rootFolder = await ensureFolder(drive, "TravelDesk");
+    root = rootFolder.id;
+    const { data: connData } = await supabase
+      .from("agency_google_drive_connections")
+      .select("drive_folder_id")
+      .eq("agency_id", agencyId)
+      .maybeSingle();
+    if (connData?.drive_folder_id !== root) {
+      await supabase.rpc("set_agency_drive_folder", {
+        p_agency_id: agencyId,
+        p_folder_id: root,
+        p_folder_name: "TravelDesk",
+      });
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "drive auth";
+    if (/invalid_grant|unauthorized/i.test(message)) {
+      return {
+        ok: false,
+        message: "La conexión con Google Drive expiró. Reconectá desde Integraciones.",
+      };
+    }
+    return { ok: false, message };
+  }
 
   // /TravelDesk/<client> · <code>/
   const requestFolderName = `${request.client_name} · ${request.code}`;
@@ -103,14 +122,30 @@ export async function syncRequestAttachments(
         body: stream,
       });
 
-      await supabase.rpc("register_drive_sync", {
+      const { error: syncErr } = await supabase.rpc("register_drive_sync", {
         p_attachment_id: a.id,
         p_drive_file_id: uploaded.id,
         p_drive_file_url: uploaded.webViewLink ?? undefined,
       });
+      if (syncErr) {
+        // El archivo quedó en Drive pero no podemos trackearlo. Lo borramos
+        // del Drive para evitar huérfano.
+        try {
+          await drive.files.delete({ fileId: uploaded.id });
+        } catch {
+          // best effort
+        }
+        result.failed.push({ name: a.file_name, reason: `db: ${syncErr.message}` });
+        continue;
+      }
       result.synced += 1;
     } catch (e) {
       const message = e instanceof Error ? e.message : "error";
+      if (/invalid_grant|unauthorized/i.test(message)) {
+        // Token revocado: terminamos el sync acá.
+        result.failed.push({ name: a.file_name, reason: "Drive desconectado (reconectá)" });
+        return { ok: true, result };
+      }
       result.failed.push({ name: a.file_name, reason: message });
     }
   }
