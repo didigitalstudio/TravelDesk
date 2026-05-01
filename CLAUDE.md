@@ -9,11 +9,12 @@ SaaS para agencias de viaje y operadores turísticos. Centraliza el ciclo comple
 - **Frontend / Backend:** Next.js 16.2 (App Router, Turbopack) + TypeScript + Tailwind v4
 - **DB / Auth / Storage:** Supabase (`@supabase/ssr` + `@supabase/supabase-js`)
 - **Hosting:** Vercel (auto-deploy desde `main`)
-- **Mail (planeado):** Resend — todavía no integrado, decisión postergada hasta tener API key
-- **Bot Telegram (planeado):** grammY (TS) como Vercel Function — no empezado
-- **PDF (planeado):** `@react-pdf/renderer` — no empezado
+- **Mail:** Resend (`notificaciones@didigitalstudio.com`) — `lib/mail/send.ts` y `lib/mail/templates.ts`. `sendMailSafe` nunca rompe el flow del action.
+- **Bot Telegram:** grammY como route handler en `/api/telegram/webhook`. Setup vía GET `/api/telegram/setup?secret=...`. Bot: [@traveld_bot](https://t.me/traveld_bot).
+- **PDF:** `@react-pdf/renderer` server-side, runtime `nodejs`. Ruta `/agency/requests/[id]/pdf`.
+- **Google Drive:** OAuth scope `drive.file`. Mirror manual via `lib/google/sync.ts` (desde el botón "Sincronizar a Drive" del expediente).
 
-Versiones: Node 25, Next 16.2.4, React 19.2.4, Supabase JS 2.104.1.
+Versiones: Node 25, Next 16.2.4, React 19.2.4, Supabase JS 2.104.1, Resend 6.x, grammY 1.x, googleapis 144.x.
 
 ## Recursos cloud
 
@@ -114,6 +115,14 @@ supabase/
     20260426032754_bsp_calendar.sql
     20260426034819_request_edit_and_visibility_fix.sql
     20260426035323_update_request_rpc_defaults.sql
+    20260501013632_payments.sql
+    20260501021801_clients.sql
+    20260501021909_drop_old_update_quote_request.sql
+    20260501022614_member_emails.sql
+    20260501023054_client_summary.sql
+    20260501023554_telegram_integration.sql
+    20260501023928_google_drive.sql
+    20260501024341_notifications.sql
 
 types/supabase.ts            # Generado, no editar a mano
 
@@ -146,6 +155,26 @@ legacy/leo-cotizador.html    # HTML standalone original. Conservar hasta confirm
 
 ### Calendario BSP
 - **`bsp_calendar`**: `period_code` (PK, ej. `20260101W`), `period_from`, `period_to`, `payment_date`. 48 filas hardcodeadas para Argentina 2026. RLS open-read para `authenticated` (data de referencia pública).
+
+### Cuenta corriente
+- **`payments`**: una fila por request issued (`unique quote_request_id`). `agency_id`, `operator_id`, `amount`, `currency`, `due_date` (= `bsp_due_date` cuando hay vuelos), `receipt_uploaded_at`, `verified_at`, `verified_by`, `notes`. Trigger `create_payment_on_issued` la genera al pasar a `issued`. Backfill incluido para requests previos.
+
+### CRM
+- **`clients`** (por agencia): `full_name`, `email` (citext), `phone`, `document_type`, `document_number`, `birth_date`, `address`, `notes`. RLS por `agency_id`. `quote_requests.client_id` FK opcional (los snapshot `client_name/email/phone` se mantienen para no mutar presupuestos históricos).
+
+### Mail / notificaciones
+- **`notifications`**: `user_id`, `kind`, `title`, `body`, `link`, `read_at`, `created_at`. Una fila por user/evento, RLS only-own. Inserts vía RPCs `notify_agency_members` / `notify_operator_members` (validan que el caller pertenezca al tenant relacionado).
+
+### Telegram
+- **`telegram_links`** (PK `user_id`): `chat_id`, `username`. RLS only-own. Lo que ata el chat con la cuenta.
+- **`telegram_link_codes`**: códigos de 6 chars con TTL de 15 min. Sin policies abiertas — todo via RPC.
+
+### Google Drive
+- **`agency_google_drive_connections`** (PK `agency_id`): `refresh_token` (encrypted at rest por Postgres), `drive_folder_id`, `drive_folder_name`. Sólo admins de la agencia pueden ver/borrar.
+- **`attachment_drive_files`** (PK `attachment_id`): `drive_file_id`, `drive_file_url`. Para no duplicar al sincronizar.
+
+### Resumen al cliente
+- **`quote_requests.client_summary_token`** (uuid, unique parcial): token público para `/trip/[token]`.
 
 ### Enums
 - `member_role`: owner, admin, member
@@ -187,8 +216,19 @@ Todas las tablas tienen RLS habilitado. Helpers `security definer` con `set sear
 - `upsert_reservation(request_id, reservation_code, notes)` → uuid. Sólo operador con quote `accepted`. Promueve `accepted/partially_accepted` → `reserved`.
 - `mark_request_issued(request_id)` → `reserved/...` → `issued`. Setea `quote_requests.issued_at`. Requiere reservation cargada. Trigger `set_bsp_due_date` calcula `bsp_due_date` si la request incluye `flights`.
 - `compute_bsp_due_date(date)` → date. Lookup en `bsp_calendar` por la fecha de emisión.
-- `update_quote_request(...)` → void. Edita una solicitud sólo si está en `draft` o `sent`. Misma firma que create excepto el `agency_id`.
+- `update_quote_request(...)` → void. Edita una solicitud sólo si está en `draft` o `sent`. Acepta `p_client_id` opcional. El overload viejo (sin `p_client_id`) se dropeó en `20260501021909`.
 - `delete_quote_request(request_id)` → void. Hard delete con cascade a dispatches/history. Sólo si está en `draft` o `sent`.
+- `register_payment_receipt(request_id)` → marca `payments.receipt_uploaded_at` y promueve `issued → payment_pending`. Requiere al menos un attachment `payment_receipt`.
+- `unregister_payment_receipt(request_id)` → revierte si todavía no fue verificado.
+- `verify_payment(payment_id, notes)` → operador verifica el pago y la request pasa a `closed`.
+- `upsert_client(...)` / `delete_client(id)` → CRM básico, agency-scoped.
+- `agency_member_emails(agency_id)` / `operator_member_emails(operator_id)` → arrays de emails para mandar mails sin exponer service_role. Validan que el caller pertenezca al tenant o tenga relación dispatched/linked.
+- `notify_agency_members(agency_id, kind, title, body, link)` / `notify_operator_members(...)` → encolan una notificación por miembro. Mismo gate de validación que los emails.
+- `mark_notification_read(id)` / `mark_all_notifications_read()` → only-own.
+- `generate_client_summary_token(request_id)` → idempotente, devuelve uuid. `revoke_client_summary_token(request_id)`.
+- `get_trip_summary(token)` → jsonb pública para `/trip/[token]` (granted to anon).
+- `generate_telegram_link_code()` (auth) → string de 6 chars con TTL 15min. `consume_telegram_link_code(code, chat_id, username)` (anon) → boolean. `telegram_create_request(chat_id, client_name, destination, notes)` (anon) → uuid+code+agency_id, valida que el chat esté linkeado. `telegram_list_recent_requests(chat_id, limit)`.
+- `upsert_agency_drive_connection(agency_id, refresh_token, folder_id, folder_name)` → upsert OAuth refresh token. `set_agency_drive_folder(agency_id, folder_id, folder_name)`. `get_agency_drive_refresh_token(agency_id)` (only members). `register_drive_sync(attachment_id, drive_file_id, drive_file_url)`.
 
 ## Auth
 
@@ -249,49 +289,32 @@ Migración `bsp_calendar`: tabla `bsp_calendar` con los 48 períodos del calenda
 ### Iteración 11a — Edición/eliminación de solicitudes + fix RLS
 Migración `request_edit_and_visibility_fix` + `update_request_rpc_defaults`. Agrega RPCs `update_quote_request` y `delete_quote_request`, ambas restringidas a status `draft` o `sent` (después de eso queda congelada porque hay cotizaciones en juego). Delete hace cascade manual a `quote_request_dispatches` y `quote_request_status_history`. Bug fix: las policies de `agencies` y `operators` no permitían visibilidad cross-tenant cuando había dispatch — el operador no podía ver el nombre de la agencia que lo despachó (el `agencies!inner` join devolvía vacío). Nuevas policies `agencies_select_linked_or_dispatched_operator` y `operators_select_dispatched_by_agency` arreglan eso. UI: nueva página `/agency/requests/[id]/edit` que reusa el form (`_components/request-form.tsx` extraído del antiguo `new-request-form.tsx` con prop `mode`). Botones "Editar" y "Eliminar" en el header del detalle, visibles sólo cuando el status lo permite. Eliminar usa `confirm()` nativo y borra del todo (distinto de "Cancelar" que mantiene el registro como `cancelled`).
 
-## Estado: iteraciones pendientes
-
 ### Iteración 11 — Cuenta corriente
-- Schema: `payments` (agency↔operator, amount, currency, due_date, paid_at, receipt_url, verified_at), o vista calculada desde quote_requests aceptados/issued.
-- UI agencia: vista de saldos por operador, subir comprobante, marcar pagado.
-- UI operador: vista de saldos por agencia, verificar comprobantes.
-- Status: pasa a `payment_pending` y luego `closed`.
+Migración `payments`. Tabla `payments` (una fila por request emitida) con `amount`, `currency`, `due_date` (set automáticamente al `bsp_due_date` cuando aplica), `receipt_uploaded_at`, `verified_at`, `verified_by`. Trigger `create_payment_on_issued` (AFTER UPDATE) inserta la fila al pasar a `issued`, con monto = sum de items aceptados de la quote ganadora. Backfill para requests existentes en `issued/payment_pending/closed`. RPCs `register_payment_receipt` (agencia, requiere al menos un `payment_receipt` subido), `unregister_payment_receipt` (revertir antes de verificación), `verify_payment` (operador). Páginas `/agency/payments` y `/operator/payments` con saldos agrupados por contraparte (USD y ARS separados) + detalle con BspBadge. Paneles `PaymentPanel` (agencia: subir comprobantes + confirmar pago) y `PaymentVerifyPanel` (operador: ver comprobantes + verificar). Helpers `lib/payments.ts` con `paymentStage` (pending_receipt | pending_verification | verified) + tonos.
 
-### Iteración 12 — Resend (mail)
-- Integración con `RESEND_API_KEY` (env var en Vercel cuando esté disponible).
-- Triggers: invitación creada, solicitud despachada, cotización recibida, aceptación, vencimiento BSP próximo.
-- Templates con branding de la agencia (color, logo).
-- Tracking: usar webhooks de Resend para registrar `delivered`, `opened`, `bounced` en una tabla `email_events`.
+### Iteración 12 — Mail transaccional (Resend)
+Helpers `lib/mail/send.ts` (`sendMailSafe` que nunca rompe el flow), `lib/mail/templates.ts` (HTML simple inline), `lib/mail/recipients.ts` (lookup vía RPCs `agency_member_emails` / `operator_member_emails`, ambas security definer y validan el caller). Migration `member_emails` agrega esas RPCs. Hooks post-success en server actions: invitación operator_link, dispatch a operadores, quote enviada (notif a agencia), quote aceptada / parcial (notif al operador), comprobante de pago confirmado (notif al operador), pago verificado (notif a agencia), resumen de viaje al cliente (mail directo a la dirección del cliente). Env vars `RESEND_API_KEY`, `RESEND_FROM_EMAIL=notificaciones@didigitalstudio.com`, `NEXT_PUBLIC_APP_URL`.
 
-### Iteración 13 — PDF presupuesto para cliente final
-- `@react-pdf/renderer` server-side.
-- Endpoint `/agency/requests/[id]/pdf` que genera PDF de presupuesto.
-- Margen de la agencia: campo editable antes de generar (no debe verlo el operador).
-- Branding: usar `agencies.brand_color` y `brand_logo_url`.
+### Iteración 13 — PDF presupuesto al cliente
+Instala `@react-pdf/renderer` (runtime `nodejs` obligatorio). Componente `lib/pdf/quote-pdf.tsx` con branding (color, logo) por agencia, ítems, subtotal/margen/total, validez, condiciones de pago. Route handler `/agency/requests/[id]/pdf?quote_id=X&margin=Y&margin_type=fixed|percent` devuelve `application/pdf` inline. Margen pasado por query string (no persistido, no visible al operador). UI: en cada `QuoteCard` hay un colapsable con input de margen + selector % / monto fijo y botón que abre el PDF en nueva pestaña.
 
-### Iteración 14 — Bot de Telegram
-- grammY (TS) como Vercel Function en `/api/telegram-webhook`.
-- Vincular chat al user (tabla `telegram_links`).
-- Comando `/cotizar` con prompt en lenguaje libre que parsea con LLM o template.
-- Crea `quote_request` y opcionalmente despacha.
+### Iteración 14 — Bot de Telegram (grammY)
+Bot [@traveld_bot](https://t.me/traveld_bot). Migración `telegram_integration`: tablas `telegram_links` (PK user_id), `telegram_link_codes`. RPCs security definer: `generate_telegram_link_code` (auth), `consume_telegram_link_code(code, chat_id, username)` (anon), `telegram_create_request(chat_id, client_name, destination, notes)` (anon, valida link + resuelve agencia + genera `TD-NNNN`), `telegram_list_recent_requests`. Route handler POST `/api/telegram/webhook` (runtime nodejs) con grammY en modo webhook. Setup en `/api/telegram/setup?secret=…`. Webhook secret: `TELEGRAM_WEBHOOK_SECRET` (cabezal `X-Telegram-Bot-Api-Secret-Token`). Página `/agency/telegram` para generar el code de vinculación y desvincular. Comandos: `/start`, `/help`, `/vincular CODE`, `/cotizar Cliente ; Destino ; Notas`, `/listar`. Toda la lógica usa el cliente anónimo de Supabase — sin service_role en producción.
 
 ### Iteración 15 — Resumen de viaje al cliente final
-- UI agencia: botón "Enviar resumen al cliente" en expediente, con itinerario, fechas y attachments.
-- Mail (vía Resend) o link público read-only del expediente.
+Migración `client_summary` agrega `quote_requests.client_summary_token uuid` (unique parcial). RPCs `generate_client_summary_token` (idempotente), `revoke_client_summary_token`, `get_trip_summary(token)` (granted to anon, devuelve jsonb con request + agency branding + reservation + passengers). Página pública `/trip/[token]` con branding (color, logo) — itinerario, fechas, pasajeros, reserva, notas. Panel `ClientSummaryPanel` en el expediente: generar/revocar link, copiar, abrir, enviar por mail (template `clientTripSummaryEmail` vía Resend, recipient definible).
 
-### Iteración 16 — CRM básico (Fase 2)
-- Schema: `clients` (agency_id, full_name, email, phone, dni, dob, address, notes).
-- En `quote_requests`, FK opcional `client_id` (los datos de cliente actuales viven en columnas, queda doble fuente — decidir si normalizar o mantener snapshot).
-- UI: `/agency/clients` con ficha, historial de viajes, attachments asociados.
-- UI: en form de nueva solicitud, autocompletar desde clientes existentes.
+### Iteración 16 — CRM básico
+Migración `clients`. Tabla `clients` por agencia (full_name, email citext, phone, document_type, document_number, birth_date, address, notes) + RLS por `agency_id`. FK opcional `quote_requests.client_id` (snapshots de `client_name/email/phone` se mantienen). RPCs `upsert_client`, `delete_client`. `create_quote_request` y `update_quote_request` extendidas con `p_client_id`; el overload viejo se drop en `drop_old_update_quote_request`. UI: listado `/agency/clients`, alta `/agency/clients/new`, ficha `/agency/clients/[id]` (edit + delete + historial de viajes + link "Nueva solicitud para este cliente"). Combobox `ClientPicker` integrado al `request-form.tsx` (campos cliente ahora controlados; busca por nombre o email; clic autocompleta). Soporta preset via `/agency/requests/new?client_id=X`.
 
-### Iteración 17 — Google Drive (Fase 3)
-- OAuth Drive por agencia.
-- Mirror de attachments al Drive de la agencia, organizado por cliente y expediente.
+### Iteración 17 — Google Drive integration
+Migración `google_drive`. Tablas `agency_google_drive_connections` (PK agency_id; admin-only) + `attachment_drive_files` (track de qué se sincronizó). OAuth con scope `drive.file`. Endpoints: `/api/google/start` (inicia flow con state=agency_id|user_id), `/api/google/callback` (intercambia code → refresh_token, ensure folder "TravelDesk", upsert connection). RPCs `upsert_agency_drive_connection`, `set_agency_drive_folder`, `get_agency_drive_refresh_token`, `register_drive_sync`. `lib/google/drive.ts` con helpers (auth client, ensureFolder, uploadStream). `lib/google/sync.ts` implementa el sync per-request: crea carpeta `<client> · <code>`, sub-carpetas por kind, descarga vía signed URLs y sube vía `drive.files.create` con stream. UI: página `/agency/integrations` (conectar/desconectar) + botón `DriveSyncButton` en el header del expediente cuando la conexión existe (best-effort, no bloquea).
 
-### Iteración 18 — Notificaciones avanzadas y reportes
-- Notificaciones in-app (campana con counter).
-- Dashboard analítico: solicitudes/mes, conversion rate, vencimientos próximos.
+### Iteración 18 — Notificaciones in-app + dashboards
+Migración `notifications`. Tabla `notifications` (`user_id`, `kind`, `title`, `body`, `link`, `read_at`). RPCs `notify_agency_members` / `notify_operator_members` (security definer, validan que el caller esté relacionado con el tenant destino), `mark_notification_read`, `mark_all_notifications_read`. Hooks integrados en los mismos puntos que los mails (un mail + una notification). Componente `NotificationsBell` (campana con contador, dropdown con últimas 12, link a la entidad relacionada, "marcar todas leídas") montado en ambos layouts. Dashboards `/agency` y `/operator` rehechos: stats (activas, a pagar, verificados, clientes, tasa de aceptación), barra de últimos 6 meses, breakdown por status, próximos vencimientos BSP, últimas solicitudes.
+
+## Estado: iteraciones pendientes
+Ninguna mayor. Roadmap futuro abierto: integración con Resend webhooks (delivered/bounced), email templating con `react-email`, multi-payment (anticipo + saldo), Drive auto-mirror on upload (en lugar de manual), conversation state real para Telegram (multi-step), notificaciones push web (FCM).
 
 ## Decisiones arquitectónicas tomadas
 
@@ -300,13 +323,18 @@ Migración `request_edit_and_visibility_fix` + `update_request_rpc_defaults`. Ag
 - **`code` por agencia:** `TD-NNNN` con counter en `agencies.request_count`. Update + RETURNING garantiza secuencialidad sin race.
 - **`accept_invitation(operator_link)`** exige que el invitado YA tenga un operador donde sea admin. Si llega un user nuevo, primero pasa por onboarding (crea operador) y después acepta.
 - **RLS para operador:** ve la solicitud sólo si existe un dispatch a él (`is_operator_dispatched_to_request`). No tiene acceso a otras solicitudes de la agencia.
-- **Sin email todavía:** las invitaciones se entregan como link copiable. Resend está plan iter 12.
-- **Tabla única `attachments`** (planeada): un kind enum (`passenger_doc | reservation | voucher | invoice | file_doc | payment_receipt`) con FK a `quote_request_id`. Decisión: no abrir tabla por tipo.
+- **Mails best-effort, never block:** `sendMailSafe` y los `notify*` están dentro de try/catch — si Resend falla o el RPC `notify_*_members` rompe, el action principal igual responde OK. Trade-off: el usuario puede ver "OK" sin que llegue el mail. Aceptable para MVP.
+- **Telegram sin service_role:** todas las RPCs callable desde el webhook son `security definer` y validan `chat_id` linkeado. Mantiene la deploy sin necesitar la key sensible (la que se agregó a Vercel production como respaldo se puede borrar si no se usa para nada más).
+- **PDF con margen no persistido:** el margen va por query string (`?margin=X&margin_type=fixed|percent`), no se guarda en DB. El operador nunca lo ve porque no tiene acceso al endpoint `/agency/...`.
+- **Tabla única `attachments`**: un kind enum (`passenger_doc | reservation | voucher | invoice | file_doc | payment_receipt`) con FK a `quote_request_id`. Decisión: no abrir tabla por tipo. Los `payment_receipt` los sube la agencia (con `operator_id null`).
 
 ## Cosas a tener cuidado
 
 - **El warning Next 16** "middleware → proxy" todavía no lo migré. Cuando se haga, renombrar `middleware.ts` a `proxy.ts` y actualizar el matcher en `config`.
 - **`request_count`** en agencias se incrementa incluso si después se cancela la solicitud (códigos pueden tener gaps). Aceptable.
 - **`gen_random_uuid()`** funciona porque está en el search_path de Supabase. **`gen_random_bytes()` NO** (no está en el search_path para roles auth). Para tokens random, concatenar dos UUIDs sin guiones.
-- **Service role key** está en `.env.local` (gitignored). NO commitearla. Si se necesita en Vercel para algún endpoint, agregarla con `vercel env add SUPABASE_SERVICE_ROLE_KEY production`.
+- **Service role key** está en `.env.local` (gitignored). NO commitearla. Iter 14 NO la necesita (todas las RPCs son security definer). Está agregada a Vercel production como respaldo — borrar si no se usa.
+- **`supabase gen types`** mete el banner "new version available" en stderr. Siempre redirigir stderr a `/dev/null` o el archivo de tipos queda corrupto: `supabase gen types typescript ... 2>/dev/null > types/supabase.ts`.
+- **Webhook Telegram setup**: hay que correr GET `/api/telegram/setup?secret=$TELEGRAM_WEBHOOK_SECRET` una vez después del primer deploy a un dominio nuevo. Idem si se rota el secret.
+- **OAuth Google redirect URI**: las URIs autorizadas tienen que estar en Google Cloud Console del proyecto. Configuradas: `https://traveldesk-two.vercel.app/api/google/callback` y `http://localhost:3000/api/google/callback`. Si cambia el dominio, agregar la nueva.
 - El user `aguducculi@gmail.com` con la "Agencia Demo" original (creada en iter 2) sigue activo y es independiente de las cuentas demo públicas. No tocarlo a menos que el usuario lo pida.

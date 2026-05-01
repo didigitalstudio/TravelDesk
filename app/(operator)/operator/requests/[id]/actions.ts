@@ -77,17 +77,27 @@ async function notifyQuoteSubmitted(
       .maybeSingle();
 
     const emails = await agencyEmails(req.agency_id);
-    if (emails.length === 0) return;
+    const operatorName = dispatch?.operator.name ?? "El operador";
+    const totalLabel = formatMoney(totalAmount, currency);
 
     const tpl = quoteSubmittedEmail({
-      operatorName: dispatch?.operator.name ?? "El operador",
+      operatorName,
       requestCode: req.code,
-      totalLabel: formatMoney(totalAmount, currency),
+      totalLabel,
       detailUrl: `${origin}/agency/requests/${requestId}`,
     });
-    await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+    if (emails.length > 0) {
+      await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+    }
+    await supabase.rpc("notify_agency_members", {
+      p_agency_id: req.agency_id,
+      p_kind: "quote_submitted",
+      p_title: `${operatorName} cotizó ${req.code}`,
+      p_body: totalLabel,
+      p_link: `/agency/requests/${requestId}`,
+    });
   } catch (e) {
-    if (process.env.NODE_ENV !== "production") console.warn("[mail] notifyQuoteSubmitted", e);
+    if (process.env.NODE_ENV !== "production") console.warn("[notify] quote submitted", e);
   }
 }
 

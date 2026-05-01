@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
+import { NotificationsBell } from "@/components/notifications-bell";
 
 export default async function OperatorLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -13,6 +14,13 @@ export default async function OperatorLayout({ children }: { children: React.Rea
   const tenant = await getCurrentTenant();
   if (tenant.kind === "none") redirect("/onboarding");
   if (tenant.kind === "agency") redirect("/agency");
+
+  const { data: notifs } = await supabase
+    .from("notifications")
+    .select("id, kind, title, body, link, read_at, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -42,6 +50,17 @@ export default async function OperatorLayout({ children }: { children: React.Rea
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
+            <NotificationsBell
+              initial={(notifs ?? []).map((n) => ({
+                id: n.id,
+                kind: n.kind,
+                title: n.title,
+                body: n.body,
+                link: n.link,
+                readAt: n.read_at,
+                createdAt: n.created_at,
+              }))}
+            />
             <span className="hidden text-zinc-500 sm:inline">{tenant.operatorName}</span>
             <span className="text-zinc-300 dark:text-zinc-700">·</span>
             <span className="text-zinc-600 dark:text-zinc-400">{user.email}</span>

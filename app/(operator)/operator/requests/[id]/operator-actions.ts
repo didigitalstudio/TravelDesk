@@ -119,15 +119,23 @@ async function notifyPaymentVerified(requestId: string): Promise<void> {
       .maybeSingle();
 
     const emails = await agencyEmails(req.agency_id);
-    if (emails.length === 0) return;
-
+    const operatorName = payment?.operator.name ?? "El operador";
     const tpl = paymentVerifiedEmail({
-      operatorName: payment?.operator.name ?? "El operador",
+      operatorName,
       requestCode: req.code,
       detailUrl: `${origin}/agency/requests/${requestId}`,
     });
-    await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+    if (emails.length > 0) {
+      await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+    }
+    await supabase.rpc("notify_agency_members", {
+      p_agency_id: req.agency_id,
+      p_kind: "payment_verified",
+      p_title: `${operatorName} verificó tu pago (${req.code})`,
+      p_body: "Solicitud cerrada",
+      p_link: `/agency/requests/${requestId}`,
+    });
   } catch (e) {
-    if (process.env.NODE_ENV !== "production") console.warn("[mail] notifyPaymentVerified", e);
+    if (process.env.NODE_ENV !== "production") console.warn("[notify] payment verified", e);
   }
 }

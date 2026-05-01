@@ -181,7 +181,6 @@ async function notifyDispatch(requestId: string, operatorIds: string[]): Promise
     const detailUrl = `${origin}/operator/requests/${requestId}`;
     for (const opId of operatorIds) {
       const emails = await operatorEmails(opId);
-      if (emails.length === 0) continue;
       const tpl = requestDispatchedEmail({
         agencyName: req.agency.name,
         requestCode: req.code,
@@ -189,10 +188,19 @@ async function notifyDispatch(requestId: string, operatorIds: string[]): Promise
         clientName: req.client_name,
         detailUrl,
       });
-      await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+      if (emails.length > 0) {
+        await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+      }
+      await supabase.rpc("notify_operator_members", {
+        p_operator_id: opId,
+        p_kind: "request_dispatched",
+        p_title: `Nueva solicitud ${req.code}`,
+        p_body: `${req.agency.name} · ${req.client_name} → ${req.destination}`,
+        p_link: `/operator/requests/${requestId}`,
+      });
     }
   } catch (e) {
-    if (process.env.NODE_ENV !== "production") console.warn("[mail] notifyDispatch", e);
+    if (process.env.NODE_ENV !== "production") console.warn("[notify] dispatch", e);
   }
 }
 
@@ -207,16 +215,24 @@ async function notifyQuoteAccepted(quoteId: string, requestId: string, partial: 
       .maybeSingle();
     if (!quote) return;
     const emails = await operatorEmails(quote.operator_id);
-    if (emails.length === 0) return;
     const tpl = quoteAcceptedEmail({
       agencyName: quote.request.agency.name,
       requestCode: quote.request.code,
       isPartial: partial,
       detailUrl: `${origin}/operator/requests/${requestId}`,
     });
-    await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+    if (emails.length > 0) {
+      await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+    }
+    await supabase.rpc("notify_operator_members", {
+      p_operator_id: quote.operator_id,
+      p_kind: "quote_accepted",
+      p_title: `Aceptaron tu cotización (${quote.request.code})`,
+      p_body: partial ? "Aceptación parcial" : "Aceptación total",
+      p_link: `/operator/requests/${requestId}`,
+    });
   } catch (e) {
-    if (process.env.NODE_ENV !== "production") console.warn("[mail] notifyQuoteAccepted", e);
+    if (process.env.NODE_ENV !== "production") console.warn("[notify] quote accepted", e);
   }
 }
 
@@ -286,15 +302,24 @@ async function notifyPaymentReceiptUploaded(requestId: string): Promise<void> {
       .maybeSingle();
     if (!payment) return;
     const emails = await operatorEmails(payment.operator_id);
-    if (emails.length === 0) return;
+    const amountLabel = formatMoney(Number(payment.amount), payment.currency);
     const tpl = paymentReceiptUploadedEmail({
       agencyName: payment.request.agency.name,
       requestCode: payment.request.code,
-      amountLabel: formatMoney(Number(payment.amount), payment.currency),
+      amountLabel,
       detailUrl: `${origin}/operator/requests/${requestId}`,
     });
-    await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+    if (emails.length > 0) {
+      await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
+    }
+    await supabase.rpc("notify_operator_members", {
+      p_operator_id: payment.operator_id,
+      p_kind: "payment_receipt_uploaded",
+      p_title: `Confirmación de pago — ${payment.request.code}`,
+      p_body: `${payment.request.agency.name} pagó ${amountLabel}`,
+      p_link: `/operator/requests/${requestId}`,
+    });
   } catch (e) {
-    if (process.env.NODE_ENV !== "production") console.warn("[mail] notifyPaymentReceiptUploaded", e);
+    if (process.env.NODE_ENV !== "production") console.warn("[notify] payment receipt", e);
   }
 }

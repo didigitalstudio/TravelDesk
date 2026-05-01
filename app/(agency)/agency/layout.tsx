@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
+import { NotificationsBell } from "@/components/notifications-bell";
 
 export default async function AgencyLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -13,6 +14,13 @@ export default async function AgencyLayout({ children }: { children: React.React
   const tenant = await getCurrentTenant();
   if (tenant.kind === "none") redirect("/onboarding");
   if (tenant.kind === "operator") redirect("/operator");
+
+  const { data: notifs } = await supabase
+    .from("notifications")
+    .select("id, kind, title, body, link, read_at, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -38,6 +46,12 @@ export default async function AgencyLayout({ children }: { children: React.React
               <Link href="/agency/payments" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Pagos
               </Link>
+              <Link href="/agency/telegram" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+                Telegram
+              </Link>
+              <Link href="/agency/integrations" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+                Integraciones
+              </Link>
               <span className="text-zinc-300 dark:text-zinc-700">·</span>
               <span className="text-xs uppercase tracking-wider text-zinc-400">
                 Portal Agencia
@@ -45,6 +59,17 @@ export default async function AgencyLayout({ children }: { children: React.React
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
+            <NotificationsBell
+              initial={(notifs ?? []).map((n) => ({
+                id: n.id,
+                kind: n.kind,
+                title: n.title,
+                body: n.body,
+                link: n.link,
+                readAt: n.read_at,
+                createdAt: n.created_at,
+              }))}
+            />
             <span className="hidden text-zinc-500 sm:inline">{tenant.agencyName}</span>
             <span className="text-zinc-300 dark:text-zinc-700">·</span>
             <span className="text-zinc-600 dark:text-zinc-400">{user.email}</span>

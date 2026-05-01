@@ -47,6 +47,44 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_google_drive_connections: {
+        Row: {
+          agency_id: string
+          connected_at: string
+          connected_by: string | null
+          drive_folder_id: string | null
+          drive_folder_name: string | null
+          refresh_token: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          connected_at?: string
+          connected_by?: string | null
+          drive_folder_id?: string | null
+          drive_folder_name?: string | null
+          refresh_token: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          connected_at?: string
+          connected_by?: string | null
+          drive_folder_id?: string | null
+          drive_folder_name?: string | null
+          refresh_token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_google_drive_connections_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_members: {
         Row: {
           agency_id: string
@@ -108,6 +146,35 @@ export type Database = {
             columns: ["operator_id"]
             isOneToOne: false
             referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attachment_drive_files: {
+        Row: {
+          attachment_id: string
+          drive_file_id: string
+          drive_file_url: string | null
+          synced_at: string
+        }
+        Insert: {
+          attachment_id: string
+          drive_file_id: string
+          drive_file_url?: string | null
+          synced_at?: string
+        }
+        Update: {
+          attachment_id?: string
+          drive_file_id?: string
+          drive_file_url?: string | null
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachment_drive_files_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: true
+            referencedRelation: "attachments"
             referencedColumns: ["id"]
           },
         ]
@@ -325,6 +392,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          kind: string
+          link: string | null
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          link?: string | null
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          link?: string | null
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       operator_members: {
         Row: {
@@ -844,6 +944,48 @@ export type Database = {
           },
         ]
       }
+      telegram_link_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      telegram_links: {
+        Row: {
+          chat_id: number
+          created_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -863,6 +1005,10 @@ export type Database = {
       compute_bsp_due_date: {
         Args: { p_issued_at_date: string }
         Returns: string
+      }
+      consume_telegram_link_code: {
+        Args: { p_chat_id: number; p_code: string; p_username?: string }
+        Returns: boolean
       }
       create_agency: {
         Args: { p_name: string; p_slug: string }
@@ -909,6 +1055,11 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: string
       }
+      generate_telegram_link_code: { Args: never; Returns: string }
+      get_agency_drive_refresh_token: {
+        Args: { p_agency_id: string }
+        Returns: string
+      }
       get_invitation_preview: {
         Args: { p_token: string }
         Returns: {
@@ -929,8 +1080,30 @@ export type Database = {
         Returns: boolean
       }
       is_operator_member: { Args: { p_operator_id: string }; Returns: boolean }
+      mark_all_notifications_read: { Args: never; Returns: undefined }
+      mark_notification_read: { Args: { p_id: string }; Returns: undefined }
       mark_request_issued: {
         Args: { p_request_id: string }
+        Returns: undefined
+      }
+      notify_agency_members: {
+        Args: {
+          p_agency_id: string
+          p_body?: string
+          p_kind: string
+          p_link?: string
+          p_title: string
+        }
+        Returns: undefined
+      }
+      notify_operator_members: {
+        Args: {
+          p_body?: string
+          p_kind: string
+          p_link?: string
+          p_operator_id: string
+          p_title: string
+        }
         Returns: undefined
       }
       operator_member_emails: {
@@ -963,6 +1136,14 @@ export type Database = {
         }
         Returns: string
       }
+      register_drive_sync: {
+        Args: {
+          p_attachment_id: string
+          p_drive_file_id: string
+          p_drive_file_url?: string
+        }
+        Returns: undefined
+      }
       register_payment_receipt: {
         Args: { p_request_id: string }
         Returns: undefined
@@ -980,6 +1161,14 @@ export type Database = {
         Args: { p_operator_ids: string[]; p_request_id: string }
         Returns: undefined
       }
+      set_agency_drive_folder: {
+        Args: {
+          p_agency_id: string
+          p_folder_id: string
+          p_folder_name?: string
+        }
+        Returns: undefined
+      }
       submit_quote: {
         Args: {
           p_currency: Database["public"]["Enums"]["currency"]
@@ -992,6 +1181,30 @@ export type Database = {
           p_valid_until?: string
         }
         Returns: string
+      }
+      telegram_create_request: {
+        Args: {
+          p_chat_id: number
+          p_client_name: string
+          p_destination: string
+          p_notes?: string
+        }
+        Returns: {
+          agency_id: string
+          request_code: string
+          request_id: string
+        }[]
+      }
+      telegram_list_recent_requests: {
+        Args: { p_chat_id: number; p_limit?: number }
+        Returns: {
+          client_name: string
+          created_at: string
+          destination: string
+          request_code: string
+          request_id: string
+          status: Database["public"]["Enums"]["request_status"]
+        }[]
       }
       unregister_payment_receipt: {
         Args: { p_request_id: string }
@@ -1013,6 +1226,15 @@ export type Database = {
           p_request_id: string
           p_return_date?: string
           p_services?: Database["public"]["Enums"]["service_type"][]
+        }
+        Returns: undefined
+      }
+      upsert_agency_drive_connection: {
+        Args: {
+          p_agency_id: string
+          p_drive_folder_id?: string
+          p_drive_folder_name?: string
+          p_refresh_token: string
         }
         Returns: undefined
       }

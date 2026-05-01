@@ -30,6 +30,7 @@ import {
   type PaymentReceiptAttachment,
 } from "./payment-panel";
 import { ClientSummaryPanel } from "./client-summary-panel";
+import { DriveSyncButton } from "./drive-sync-button";
 import { getOrigin } from "@/lib/invite";
 
 export const metadata = { title: "Solicitud — Travel Desk" };
@@ -235,6 +236,13 @@ export default async function RequestDetailPage({
   const canEditOrDelete =
     request.status === "draft" || request.status === "sent";
 
+  const { data: driveConn } = await supabase
+    .from("agency_google_drive_connections")
+    .select("agency_id")
+    .eq("agency_id", tenant.agencyId)
+    .maybeSingle();
+  const driveConnected = !!driveConn;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -269,6 +277,9 @@ export default async function RequestDetailPage({
             </>
           )}
           {!isCancelled && !isClosed && <CancelButton requestId={request.id} />}
+          {driveConnected && acceptanceReached && (
+            <DriveSyncButton requestId={request.id} />
+          )}
         </div>
       </div>
 
