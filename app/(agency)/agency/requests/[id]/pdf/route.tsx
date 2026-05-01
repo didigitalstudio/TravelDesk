@@ -8,6 +8,27 @@ export const dynamic = "force-dynamic";
 
 type Params = { id: string };
 
+const SUPABASE_HOSTNAME = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").hostname;
+  } catch {
+    return "";
+  }
+})();
+
+function isSafeLogoUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return (
+      u.protocol === "https:" &&
+      SUPABASE_HOSTNAME.length > 0 &&
+      u.hostname === SUPABASE_HOSTNAME
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<Params> },
@@ -89,14 +110,15 @@ export async function GET(
       ? `Servicios y honorarios (${marginValue.toLocaleString("es-AR", { maximumFractionDigits: 2 })}%)`
       : "Servicios y honorarios";
 
-  // Validar el logo antes de pasarlo al PDF: si no responde 200, omitir.
-  // @react-pdf rompe el render si <Image> falla con la URL.
+  // Validar el logo antes de pasarlo al PDF: solo se aceptan URLs del bucket de
+  // Supabase Storage del proyecto. Esto bloquea SSRF (169.254.169.254 etc).
   let safeLogoUrl: string | null = null;
-  if (request.agency.brand_logo_url) {
+  if (request.agency.brand_logo_url && isSafeLogoUrl(request.agency.brand_logo_url)) {
     try {
       const head = await fetch(request.agency.brand_logo_url, {
         method: "HEAD",
         signal: AbortSignal.timeout(3000),
+        redirect: "error",
       });
       if (head.ok) safeLogoUrl = request.agency.brand_logo_url;
     } catch {

@@ -107,7 +107,7 @@ export async function syncRequestAttachments(
         continue;
       }
 
-      const fetched = await fetch(signed.signedUrl);
+      const fetched = await fetch(signed.signedUrl, { redirect: "error" });
       if (!fetched.ok || !fetched.body) {
         result.failed.push({ name: a.file_name, reason: `HTTP ${fetched.status}` });
         continue;
