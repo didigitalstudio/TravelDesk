@@ -1002,6 +1002,10 @@ export type Database = {
         Args: { p_notes?: string; p_request_id: string }
         Returns: undefined
       }
+      cleanup_drive_sync_records: {
+        Args: { p_agency_id: string }
+        Returns: undefined
+      }
       compute_bsp_due_date: {
         Args: { p_issued_at_date: string }
         Returns: string
@@ -1080,6 +1084,7 @@ export type Database = {
         Returns: boolean
       }
       is_operator_member: { Args: { p_operator_id: string }; Returns: boolean }
+      is_valid_notification_kind: { Args: { p_kind: string }; Returns: boolean }
       mark_all_notifications_read: { Args: never; Returns: undefined }
       mark_notification_read: { Args: { p_id: string }; Returns: undefined }
       mark_request_issued: {

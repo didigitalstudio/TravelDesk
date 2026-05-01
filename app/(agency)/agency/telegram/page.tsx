@@ -5,7 +5,7 @@ import { TelegramPanel } from "./telegram-panel";
 
 export const metadata = { title: "Telegram — Travel Desk" };
 
-const BOT_USERNAME = "traveld_bot";
+const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "traveld_bot";
 
 export default async function AgencyTelegramPage() {
   const tenant = await getCurrentTenant();

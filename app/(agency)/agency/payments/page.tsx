@@ -80,7 +80,9 @@ export default async function AgencyPaymentsPage() {
             >
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-semibold">{entry.name}</h2>
-                <span className="text-xs text-zinc-500">{entry.count} pago(s)</span>
+                <span className="text-xs text-zinc-500">
+                  {entry.count} {entry.count === 1 ? "pago" : "pagos"}
+                </span>
               </div>
               <div className="space-y-2 text-sm">
                 <Row label="A pagar" value={formatTotals(entry.pending)} tone="warn" />

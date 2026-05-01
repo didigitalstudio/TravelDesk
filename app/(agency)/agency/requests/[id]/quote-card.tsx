@@ -353,7 +353,7 @@ export function QuoteCard({
 
       {expired && isActive && canActOnRequest && (
         <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
-          Esta cotización está vencida. Pediéndole al operador que reenvíe.
+          Esta cotización está vencida. Pedile al operador que la reenvíe.
         </p>
       )}
     </article>

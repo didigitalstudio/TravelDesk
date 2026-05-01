@@ -212,6 +212,7 @@ export function PaymentPanel({
                     <button
                       type="button"
                       onClick={() => deleteReceipt(r.id)}
+                      aria-label={`Borrar comprobante ${r.fileName}`}
                       className="rounded border border-zinc-200 px-1.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
                     >
                       ×

@@ -9,6 +9,12 @@ export async function disconnectDrive(): Promise<{ ok: boolean; message?: string
   const tenant = await getCurrentTenant();
   if (tenant.kind !== "agency") return { ok: false, message: "agency only" };
   const supabase = await createClient();
+
+  // Limpiar el track de archivos sincronizados (los archivos en Drive del user
+  // siguen ahí — Drive es de ellos). Hacemos cleanup vía RPC para los
+  // attachment_drive_files de attachments de esta agencia.
+  await supabase.rpc("cleanup_drive_sync_records", { p_agency_id: tenant.agencyId });
+
   const { error } = await supabase
     .from("agency_google_drive_connections")
     .delete()

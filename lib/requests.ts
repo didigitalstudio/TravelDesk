@@ -106,14 +106,31 @@ export function paxBreakdown(adults: number, children: number, infants: number):
   return parts.length ? parts.join(" · ") : "—";
 }
 
+// Parsea "YYYY-MM-DD" como fecha local (no UTC). Esto evita el bug de
+// Safari iOS donde new Date("2026-05-01") da Invalid Date, y también el de
+// otros navegadores que interpretan UTC midnight y muestran el día anterior
+// en zonas con offset negativo respecto a UTC.
+function parseLocalDate(s: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) {
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  return new Date(s);
+}
+
+export function formatLocalDate(s: string | null): string {
+  if (!s) return "—";
+  return parseLocalDate(s).toLocaleDateString("es-AR");
+}
+
 export function formatDateRange(
   from: string | null,
   to: string | null,
   flexible: boolean,
 ): string {
   if (flexible && !from && !to) return "Fechas flexibles";
-  const f = from ? new Date(from).toLocaleDateString("es-AR") : "—";
-  const t = to ? new Date(to).toLocaleDateString("es-AR") : "—";
+  const f = from ? parseLocalDate(from).toLocaleDateString("es-AR") : "—";
+  const t = to ? parseLocalDate(to).toLocaleDateString("es-AR") : "—";
   if (from && to) return `${f} → ${t}${flexible ? " (flex)" : ""}`;
   if (from) return `${f}${flexible ? " (flex)" : ""}`;
   if (to) return `→ ${t}${flexible ? " (flex)" : ""}`;

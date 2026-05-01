@@ -68,13 +68,22 @@ async function notifyQuoteSubmitted(
       .maybeSingle();
     if (!req) return;
 
-    // Resolver el operador del current user para incluirlo en el subject.
-    const { data: dispatch } = await supabase
-      .from("quote_request_dispatches")
-      .select("operator:operators!inner(name)")
-      .eq("quote_request_id", requestId)
-      .limit(1)
-      .maybeSingle();
+    // Resolver el operador del current user (no el primero dispatched al request,
+    // que puede no ser el correcto si hay varios).
+    const { data: { user } } = await supabase.auth.getUser();
+    let dispatch: { operator: { name: string } } | null = null;
+    if (user) {
+      const { data } = await supabase
+        .from("quote_request_dispatches")
+        .select(
+          "operator:operators!inner(name), operator_members:operator_members!inner(user_id)",
+        )
+        .eq("quote_request_id", requestId)
+        .eq("operator_members.user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+      dispatch = data ? { operator: { name: data.operator.name } } : null;
+    }
 
     const emails = await agencyEmails(req.agency_id);
     const operatorName = dispatch?.operator.name ?? "El operador";

@@ -21,9 +21,7 @@ export type MailInput = {
 export async function sendMail(input: MailInput): Promise<{ ok: boolean; id?: string; error?: string }> {
   const c = client();
   if (!c) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[mail] RESEND_API_KEY missing — skipping send", input.subject);
-    }
+    console.warn("[mail] RESEND_API_KEY missing — skipping send:", input.subject);
     return { ok: false, error: "RESEND_API_KEY not configured" };
   }
   const recipients = Array.isArray(input.to)
@@ -51,15 +49,20 @@ export async function sendMail(input: MailInput): Promise<{ ok: boolean; id?: st
 }
 
 // Para usar dentro de server actions: nunca debe romper el flow principal.
+// Loguea el fallo en prod también (sin exponer secretos) para diagnóstico.
 export async function sendMailSafe(input: MailInput): Promise<void> {
   try {
     const res = await sendMail(input);
-    if (!res.ok && process.env.NODE_ENV !== "production") {
-      console.warn("[mail] send failed:", res.error, input.subject);
+    if (!res.ok) {
+      console.warn(
+        "[mail] send failed:",
+        res.error,
+        "subject:",
+        input.subject,
+      );
     }
   } catch (e) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[mail] send threw:", e);
-    }
+    const message = e instanceof Error ? e.message : "unknown";
+    console.warn("[mail] send threw:", message, "subject:", input.subject);
   }
 }

@@ -121,6 +121,7 @@ export function ClientPicker({
           <button
             type="button"
             onClick={clear}
+            aria-label="Quitar cliente seleccionado"
             className="absolute inset-y-0 right-2 my-auto h-fit text-xs text-zinc-500 hover:text-zinc-700"
             title="Quitar selección"
           >

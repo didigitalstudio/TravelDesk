@@ -95,17 +95,25 @@ export function TelegramPanel({ botUsername, initialLink }: Props) {
               <div className="mt-2 font-mono text-3xl font-bold tracking-widest">
                 {code}
               </div>
-              <p className="mt-2 text-xs text-zinc-500">
-                Mandá <code>/vincular {code}</code> a{" "}
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`/vincular ${code}`);
+                  }}
+                  className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  Copiar /vincular {code}
+                </button>
                 <a
                   href={`https://t.me/${botUsername}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="underline"
+                  className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
                 >
-                  @{botUsername}
+                  Abrir @{botUsername}
                 </a>
-              </p>
+              </div>
             </div>
           )}
         </div>

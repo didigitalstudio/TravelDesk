@@ -240,6 +240,14 @@ function monthlyCounts(requests: { created_at: string }[]): { label: string; cou
 }
 
 function BarChart({ data }: { data: { label: string; count: number }[] }) {
+  const total = data.reduce((acc, d) => acc + d.count, 0);
+  if (total === 0) {
+    return (
+      <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-4 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/30">
+        Cuando empieces a cargar solicitudes vas a ver acá la tendencia mensual.
+      </div>
+    );
+  }
   const max = Math.max(1, ...data.map((d) => d.count));
   return (
     <div className="flex h-32 items-end gap-2">
@@ -248,7 +256,7 @@ function BarChart({ data }: { data: { label: string; count: number }[] }) {
           <div className="text-[10px] text-zinc-500">{d.count}</div>
           <div
             className="w-full rounded-t bg-blue-500/70"
-            style={{ height: `${(d.count / max) * 100}%`, minHeight: 2 }}
+            style={{ height: `${(d.count / max) * 100}%`, minHeight: d.count > 0 ? 4 : 0 }}
           />
           <div className="text-[10px] uppercase text-zinc-500">{d.label}</div>
         </div>
