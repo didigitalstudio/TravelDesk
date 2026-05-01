@@ -89,12 +89,27 @@ export async function GET(
       ? `Servicios y honorarios (${marginValue.toLocaleString("es-AR", { maximumFractionDigits: 2 })}%)`
       : "Servicios y honorarios";
 
+  // Validar el logo antes de pasarlo al PDF: si no responde 200, omitir.
+  // @react-pdf rompe el render si <Image> falla con la URL.
+  let safeLogoUrl: string | null = null;
+  if (request.agency.brand_logo_url) {
+    try {
+      const head = await fetch(request.agency.brand_logo_url, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(3000),
+      });
+      if (head.ok) safeLogoUrl = request.agency.brand_logo_url;
+    } catch {
+      // logo inaccesible — generamos PDF sin logo
+    }
+  }
+
   const buffer = await renderToBuffer(
     <QuotePdf
       agency={{
         name: request.agency.name,
         brandColor: request.agency.brand_color,
-        brandLogoUrl: request.agency.brand_logo_url,
+        brandLogoUrl: safeLogoUrl,
       }}
       request={{
         code: request.code,

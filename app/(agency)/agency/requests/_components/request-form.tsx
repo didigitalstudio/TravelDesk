@@ -53,6 +53,16 @@ export function RequestForm({
   const [clientName, setClientName] = useState(initial?.client_name ?? "");
   const [clientEmail, setClientEmail] = useState(initial?.client_email ?? "");
   const [clientPhone, setClientPhone] = useState(initial?.client_phone ?? "");
+  const [destination, setDestination] = useState(initial?.destination ?? "");
+  const [departureDate, setDepartureDate] = useState(initial?.departure_date ?? "");
+  const [returnDate, setReturnDate] = useState(initial?.return_date ?? "");
+  const [paxAdults, setPaxAdults] = useState(String(initial?.pax_adults ?? 1));
+  const [paxChildren, setPaxChildren] = useState(String(initial?.pax_children ?? 0));
+  const [paxInfants, setPaxInfants] = useState(String(initial?.pax_infants ?? 0));
+  const [services, setServices] = useState<Set<ServiceType>>(
+    () => new Set(initial?.services ?? []),
+  );
+  const [notes, setNotes] = useState(initial?.notes ?? "");
 
   const isEdit = mode === "edit";
   // Si el form arrancó con un client linkeado y el user lo limpió, se manda como
@@ -128,7 +138,8 @@ export function RequestForm({
             id="destination"
             name="destination"
             required
-            defaultValue={initial?.destination ?? ""}
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
             placeholder="Cancún, México"
             className={inputCls}
           />
@@ -139,7 +150,8 @@ export function RequestForm({
               id="departure_date"
               name="departure_date"
               type="date"
-              defaultValue={initial?.departure_date ?? ""}
+              value={departureDate ?? ""}
+              onChange={(e) => setDepartureDate(e.target.value)}
               disabled={flexible}
               className={`${inputCls} disabled:opacity-40`}
             />
@@ -149,7 +161,8 @@ export function RequestForm({
               id="return_date"
               name="return_date"
               type="date"
-              defaultValue={initial?.return_date ?? ""}
+              value={returnDate ?? ""}
+              onChange={(e) => setReturnDate(e.target.value)}
               disabled={flexible}
               className={`${inputCls} disabled:opacity-40`}
             />
@@ -175,7 +188,8 @@ export function RequestForm({
               name="pax_adults"
               type="number"
               min={0}
-              defaultValue={initial?.pax_adults ?? 1}
+              value={paxAdults}
+              onChange={(e) => setPaxAdults(e.target.value)}
               className={inputCls}
             />
           </Field>
@@ -185,7 +199,8 @@ export function RequestForm({
               name="pax_children"
               type="number"
               min={0}
-              defaultValue={initial?.pax_children ?? 0}
+              value={paxChildren}
+              onChange={(e) => setPaxChildren(e.target.value)}
               className={inputCls}
             />
           </Field>
@@ -195,7 +210,8 @@ export function RequestForm({
               name="pax_infants"
               type="number"
               min={0}
-              defaultValue={initial?.pax_infants ?? 0}
+              value={paxInfants}
+              onChange={(e) => setPaxInfants(e.target.value)}
               className={inputCls}
             />
           </Field>
@@ -213,7 +229,15 @@ export function RequestForm({
                 type="checkbox"
                 name="services"
                 value={s}
-                defaultChecked={initial?.services.includes(s) ?? false}
+                checked={services.has(s)}
+                onChange={(e) => {
+                  setServices((prev) => {
+                    const next = new Set(prev);
+                    if (e.target.checked) next.add(s);
+                    else next.delete(s);
+                    return next;
+                  });
+                }}
                 className="h-4 w-4 rounded border-zinc-300"
               />
               {SERVICE_LABELS[s]}
@@ -227,7 +251,8 @@ export function RequestForm({
           id="notes"
           name="notes"
           rows={3}
-          defaultValue={initial?.notes ?? ""}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
           placeholder="Categoría preferida, presupuesto, observaciones del cliente…"
           className={`${inputCls} min-h-[88px] resize-y`}
         />

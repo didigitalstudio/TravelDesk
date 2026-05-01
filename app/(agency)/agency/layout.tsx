@@ -25,12 +25,12 @@ export default async function AgencyLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-2">
             <Link href="/agency" className="text-base font-semibold tracking-tight">
               Travel Desk
             </Link>
-            <nav className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
+            <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-zinc-600 dark:text-zinc-400">
               <Link href="/agency" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Inicio
               </Link>
@@ -52,13 +52,12 @@ export default async function AgencyLayout({ children }: { children: React.React
               <Link href="/agency/integrations" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Integraciones
               </Link>
-              <span className="text-zinc-300 dark:text-zinc-700">·</span>
-              <span className="text-xs uppercase tracking-wider text-zinc-400">
+              <span className="hidden text-xs uppercase tracking-wider text-zinc-400 lg:inline">
                 Portal Agencia
               </span>
             </nav>
           </div>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
             <NotificationsBell
               initial={(notifs ?? []).map((n) => ({
                 id: n.id,

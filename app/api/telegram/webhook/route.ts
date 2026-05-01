@@ -10,5 +10,5 @@ export async function POST(req: Request): Promise<Response> {
 }
 
 export async function GET(): Promise<Response> {
-  return new Response("OK", { status: 200 });
+  return new Response("Method Not Allowed", { status: 405 });
 }

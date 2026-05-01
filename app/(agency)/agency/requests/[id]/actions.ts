@@ -182,26 +182,30 @@ async function notifyDispatch(requestId: string, operatorIds: string[]): Promise
       .maybeSingle();
     if (!req) return;
     const detailUrl = `${origin}/operator/requests/${requestId}`;
-    for (const opId of operatorIds) {
-      const emails = await operatorEmails(opId);
-      const tpl = requestDispatchedEmail({
-        agencyName: req.agency.name,
-        requestCode: req.code,
-        destination: req.destination,
-        clientName: req.client_name,
-        detailUrl,
-      });
-      if (emails.length > 0) {
-        await sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html });
-      }
-      await supabase.rpc("notify_operator_members", {
-        p_operator_id: opId,
-        p_kind: "request_dispatched",
-        p_title: `Nueva solicitud ${req.code}`,
-        p_body: `${req.agency.name} · ${req.client_name} → ${req.destination}`,
-        p_link: `/operator/requests/${requestId}`,
-      });
-    }
+    const tpl = requestDispatchedEmail({
+      agencyName: req.agency.name,
+      requestCode: req.code,
+      destination: req.destination,
+      clientName: req.client_name,
+      detailUrl,
+    });
+    await Promise.all(
+      operatorIds.map(async (opId) => {
+        const emails = await operatorEmails(opId);
+        await Promise.all([
+          emails.length > 0
+            ? sendMailSafe({ to: emails, subject: tpl.subject, html: tpl.html })
+            : Promise.resolve(),
+          supabase.rpc("notify_operator_members", {
+            p_operator_id: opId,
+            p_kind: "request_dispatched",
+            p_title: `Nueva solicitud ${req.code}`,
+            p_body: `${req.agency.name} · ${req.client_name} → ${req.destination}`,
+            p_link: `/operator/requests/${requestId}`,
+          }),
+        ]);
+      }),
+    );
   } catch (e) {
     if (process.env.NODE_ENV !== "production") console.warn("[notify] dispatch", e);
   }

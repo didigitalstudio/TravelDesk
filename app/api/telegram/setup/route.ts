@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -5,6 +6,13 @@ export const dynamic = "force-dynamic";
 
 // Endpoint manual: GET /api/telegram/setup?secret=<TELEGRAM_WEBHOOK_SECRET>
 // Registra la URL del webhook con Telegram. Re-correr si cambia el dominio.
+
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -15,7 +23,7 @@ export async function GET(req: Request): Promise<Response> {
   if (!secret || !token) {
     return NextResponse.json({ ok: false, error: "telegram env vars missing" }, { status: 500 });
   }
-  if (provided !== secret) {
+  if (!provided || !safeEqual(provided, secret)) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
