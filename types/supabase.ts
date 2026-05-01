@@ -190,6 +190,7 @@ export type Database = {
           operator_id: string | null
           passenger_id: string | null
           quote_request_id: string
+          shared_with_client: boolean
           size_bytes: number | null
           storage_path: string
           uploaded_by: string | null
@@ -204,6 +205,7 @@ export type Database = {
           operator_id?: string | null
           passenger_id?: string | null
           quote_request_id: string
+          shared_with_client?: boolean
           size_bytes?: number | null
           storage_path: string
           uploaded_by?: string | null
@@ -218,6 +220,7 @@ export type Database = {
           operator_id?: string | null
           passenger_id?: string | null
           quote_request_id?: string
+          shared_with_client?: boolean
           size_bytes?: number | null
           storage_path?: string
           uploaded_by?: string | null
@@ -1206,6 +1209,10 @@ export type Database = {
           p_folder_id: string
           p_folder_name?: string
         }
+        Returns: undefined
+      }
+      set_attachment_shared: {
+        Args: { p_attachment_id: string; p_shared: boolean }
         Returns: undefined
       }
       submit_quote: {

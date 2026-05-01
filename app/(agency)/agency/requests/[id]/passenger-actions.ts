@@ -114,3 +114,18 @@ export async function getAttachmentSignedUrl(
   }
   return { ok: true, url: data.signedUrl };
 }
+
+export async function setAttachmentShared(
+  attachmentId: string,
+  shared: boolean,
+  requestId: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_attachment_shared", {
+    p_attachment_id: attachmentId,
+    p_shared: shared,
+  });
+  if (error) return { ok: false, message: error.message };
+  revalidatePath(`/agency/requests/${requestId}`);
+  return { ok: true };
+}

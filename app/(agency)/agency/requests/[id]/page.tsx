@@ -119,7 +119,7 @@ export default async function RequestDetailPage({
       ? supabase
           .from("attachments")
           .select(
-            "id, file_name, storage_path, mime_type, size_bytes, created_at, kind, passenger_id",
+            "id, file_name, storage_path, mime_type, size_bytes, created_at, kind, passenger_id, shared_with_client",
           )
           .eq("quote_request_id", id)
           .in("kind", [
@@ -189,6 +189,7 @@ export default async function RequestDetailPage({
         fileName: a.file_name,
         storagePath: a.storage_path,
         sizeBytes: a.size_bytes,
+        sharedWithClient: a.shared_with_client ?? false,
       });
     } else if (
       a.kind === "voucher" ||
@@ -201,6 +202,7 @@ export default async function RequestDetailPage({
         storagePath: a.storage_path,
         sizeBytes: a.size_bytes,
         kind: a.kind,
+        sharedWithClient: a.shared_with_client ?? false,
       });
     } else if (a.kind === "payment_receipt") {
       paymentReceipts.push({
@@ -446,6 +448,7 @@ export default async function RequestDetailPage({
             createdAt: reservationRow.created_at,
           }}
           attachments={reservationAttachments}
+          requestId={request.id}
         />
       )}
 
@@ -453,6 +456,7 @@ export default async function RequestDetailPage({
         <IssuanceView
           attachments={issuanceAttachments}
           issuedAt={request.issued_at}
+          requestId={request.id}
         />
       )}
 

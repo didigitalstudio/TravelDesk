@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { formatBytes } from "@/lib/passengers";
-import { getAttachmentSignedUrl } from "./passenger-actions";
+import { getAttachmentSignedUrl, setAttachmentShared } from "./passenger-actions";
 
 export type ReservationData = {
   reservationCode: string;
@@ -16,14 +16,17 @@ export type ReservationAttachment = {
   fileName: string;
   storagePath: string;
   sizeBytes: number | null;
+  sharedWithClient: boolean;
 };
 
 export function ReservationView({
   reservation,
   attachments,
+  requestId,
 }: {
   reservation: ReservationData;
   attachments: ReservationAttachment[];
+  requestId: string;
 }) {
   const [error, setError] = useState<string | null>(null);
   return (
@@ -48,31 +51,71 @@ export function ReservationView({
           <div className="mb-1 text-xs uppercase tracking-wider text-zinc-500">
             Comprobantes
           </div>
-          <ul className="space-y-1">
+          <ul className="space-y-2">
             {attachments.map((a) => (
-              <li
+              <ReservationAttachmentRow
                 key={a.id}
-                className="flex items-center justify-between gap-2 text-xs"
-              >
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const res = await getAttachmentSignedUrl(a.storagePath);
-                    if (res.ok && res.url) window.open(res.url, "_blank");
-                    else setError(res.message ?? "No se pudo abrir");
-                  }}
-                  className="truncate text-blue-600 hover:underline dark:text-blue-400"
-                  title={a.fileName}
-                >
-                  {a.fileName}
-                </button>
-                <span className="text-zinc-500">{formatBytes(a.sizeBytes)}</span>
-              </li>
+                attachment={a}
+                requestId={requestId}
+                onError={setError}
+              />
             ))}
           </ul>
           {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
         </div>
       )}
     </section>
+  );
+}
+
+function ReservationAttachmentRow({
+  attachment,
+  requestId,
+  onError,
+}: {
+  attachment: ReservationAttachment;
+  requestId: string;
+  onError: (msg: string | null) => void;
+}) {
+  const [shared, setShared] = useState(attachment.sharedWithClient);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <li className="flex flex-col gap-1 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={async () => {
+            const res = await getAttachmentSignedUrl(attachment.storagePath);
+            if (res.ok && res.url) window.open(res.url, "_blank");
+            else onError(res.message ?? "No se pudo abrir");
+          }}
+          className="truncate text-blue-600 hover:underline dark:text-blue-400"
+          title={attachment.fileName}
+        >
+          {attachment.fileName}
+        </button>
+        <span className="text-zinc-500">{formatBytes(attachment.sizeBytes)}</span>
+      </div>
+      <label className="flex items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-400">
+        <input
+          type="checkbox"
+          checked={shared}
+          disabled={pending}
+          onChange={(e) => {
+            const next = e.target.checked;
+            setShared(next);
+            startTransition(async () => {
+              const res = await setAttachmentShared(attachment.id, next, requestId);
+              if (!res.ok) {
+                setShared(!next);
+                onError(res.message ?? "No se pudo actualizar");
+              }
+            });
+          }}
+        />
+          Compartir con el cliente
+      </label>
+    </li>
   );
 }
