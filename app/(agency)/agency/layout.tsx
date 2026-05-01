@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { NotificationsBell } from "@/components/notifications-bell";
-import { PortalHeader } from "@/components/portal-header";
+import { PortalSidebar } from "@/components/portal-sidebar";
 
 const NAV_ITEMS = [
   { href: "/agency", label: "Inicio" },
@@ -34,36 +34,36 @@ export default async function AgencyLayout({ children }: { children: React.React
 
   return (
     <div className="min-h-screen">
-      <PortalHeader
+      <PortalSidebar
         brandHref="/agency"
         portalLabel="Portal Agencia"
         navItems={NAV_ITEMS}
-        rightSlot={
-          <>
-            <NotificationsBell
-              initial={(notifs ?? []).map((n) => ({
-                id: n.id,
-                kind: n.kind,
-                title: n.title,
-                body: n.body,
-                link: n.link,
-                readAt: n.read_at,
-                createdAt: n.created_at,
-              }))}
-            />
-            <div className="hidden flex-col items-end leading-tight sm:flex">
-              <span className="text-xs font-medium text-zinc-200">{tenant.agencyName}</span>
-              <span className="text-[11px] text-zinc-500">{user.email}</span>
-            </div>
-            <form action="/auth/signout" method="post">
-              <button type="submit" className="btn-ghost">
-                Salir
-              </button>
-            </form>
-          </>
+        tenantName={tenant.agencyName}
+        userEmail={user.email ?? ""}
+        topRightSlot={
+          <NotificationsBell
+            initial={(notifs ?? []).map((n) => ({
+              id: n.id,
+              kind: n.kind,
+              title: n.title,
+              body: n.body,
+              link: n.link,
+              readAt: n.read_at,
+              createdAt: n.created_at,
+            }))}
+          />
+        }
+        footerSlot={
+          <form action="/auth/signout" method="post">
+            <button type="submit" className="btn-ghost w-full">
+              Salir
+            </button>
+          </form>
         }
       />
-      <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+      <main className="px-6 py-8 md:pl-[calc(16rem+1.5rem)]">
+        <div className="mx-auto max-w-6xl">{children}</div>
+      </main>
     </div>
   );
 }
