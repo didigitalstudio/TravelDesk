@@ -29,8 +29,10 @@ export default async function OperatorHome() {
     : { data: null };
   const pendingCount = pending?.length ?? 0;
 
+  const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
   const [
     { data: dispatches },
+    { data: openDispatches },
     { data: quotes },
     { data: payments },
   ] = await Promise.all([
@@ -41,11 +43,17 @@ export default async function OperatorHome() {
       )
       .eq("operator_id", tenant.operatorId)
       .order("sent_at", { ascending: false })
-      .limit(50),
+      .limit(6),
+    supabase
+      .from("quote_request_dispatches")
+      .select("request:quote_requests!inner(status)")
+      .eq("operator_id", tenant.operatorId)
+      .in("request.status", ["sent", "quoted"]),
     supabase
       .from("quotes")
       .select("status, total_amount, currency, submitted_at")
-      .eq("operator_id", tenant.operatorId),
+      .eq("operator_id", tenant.operatorId)
+      .gte("submitted_at", sixMonthsAgo),
     supabase
       .from("payments")
       .select("amount, currency, receipt_uploaded_at, verified_at")
@@ -54,6 +62,7 @@ export default async function OperatorHome() {
 
   const dispatchList = dispatches ?? [];
   const quoteList = quotes ?? [];
+  const openCount = openDispatches?.length ?? 0;
 
   const quoteCounts: Partial<Record<QuoteStatus, number>> = {};
   for (const q of quoteList) {
@@ -73,9 +82,6 @@ export default async function OperatorHome() {
     else pendingTotals[p.currency as Currency] += amount;
   }
 
-  const openToQuote = dispatchList.filter(
-    (d) => d.request.status === "sent" || d.request.status === "quoted",
-  );
 
   return (
     <div className="space-y-6">
@@ -100,7 +106,7 @@ export default async function OperatorHome() {
       )}
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Para cotizar" value={String(openToQuote.length)} />
+        <Stat label="Para cotizar" value={String(openCount)} />
         <Stat label="Cotizaciones activas" value={String(submittedCount)} />
         <Stat
           label="Tasa de aceptación"
@@ -152,7 +158,7 @@ export default async function OperatorHome() {
           </p>
         ) : (
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {dispatchList.slice(0, 6).map((d) => (
+            {dispatchList.map((d) => (
               <li key={d.request.id}>
                 <Link
                   href={`/operator/requests/${d.request.id}`}

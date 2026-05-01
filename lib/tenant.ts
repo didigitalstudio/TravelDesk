@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 export type TenantContext =
@@ -5,7 +6,7 @@ export type TenantContext =
   | { kind: "operator"; operatorId: string; operatorName: string; role: string }
   | { kind: "none" };
 
-export async function getCurrentTenant(): Promise<TenantContext> {
+export const getCurrentTenant = cache(async (): Promise<TenantContext> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -44,4 +45,4 @@ export async function getCurrentTenant(): Promise<TenantContext> {
     };
   }
   return { kind: "none" };
-}
+});

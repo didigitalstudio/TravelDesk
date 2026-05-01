@@ -33,7 +33,13 @@ export type PassengerRow = {
   city: string | null;
 };
 
-type ClientOption = {
+type ClientHit = {
+  id: string;
+  fullName: string;
+  email: string | null;
+};
+
+type ClientFull = {
   id: string;
   fullName: string;
   email: string | null;
@@ -72,34 +78,6 @@ export function PassengersPanel({
 }: Props) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [clients, setClients] = useState<ClientOption[]>([]);
-
-  useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from("clients")
-      .select(
-        "id, full_name, email, phone, document_type, document_number, birth_date, document_expiry_date, nationality, city",
-      )
-      .eq("agency_id", agencyId)
-      .order("full_name", { ascending: true })
-      .then(({ data }) => {
-        setClients(
-          (data ?? []).map((c) => ({
-            id: c.id,
-            fullName: c.full_name,
-            email: c.email,
-            phone: c.phone,
-            documentType: c.document_type,
-            documentNumber: c.document_number,
-            birthDate: c.birth_date,
-            documentExpiryDate: c.document_expiry_date,
-            nationality: c.nationality,
-            city: c.city,
-          })),
-        );
-      });
-  }, [agencyId]);
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
@@ -122,7 +100,7 @@ export function PassengersPanel({
       {adding && (
         <PassengerForm
           requestId={requestId}
-          clients={clients}
+          agencyId={agencyId}
           onClose={() => setAdding(false)}
         />
       )}
@@ -141,7 +119,7 @@ export function PassengersPanel({
               {editingId === p.id ? (
                 <PassengerForm
                   requestId={requestId}
-                  clients={clients}
+                  agencyId={agencyId}
                   initial={p}
                   onClose={() => setEditingId(null)}
                 />
@@ -262,12 +240,12 @@ function PassengerRowView({
 
 function PassengerForm({
   requestId,
-  clients,
+  agencyId,
   initial,
   onClose,
 }: {
   requestId: string;
-  clients: ClientOption[];
+  agencyId: string;
   initial?: PassengerRow;
   onClose: () => void;
 }) {
@@ -292,6 +270,8 @@ function PassengerForm({
   const [pending, start] = useTransition();
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerHits, setPickerHits] = useState<ClientHit[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
   const pickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -303,7 +283,63 @@ function PassengerForm({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  function pickClient(c: ClientOption) {
+  // Lazy search: solo dispara queries cuando el user tipea y la lista está
+  // visible. Debounce de 250ms.
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const q = pickerQuery.trim();
+    let cancelled = false;
+    setPickerLoading(true);
+    const t = setTimeout(async () => {
+      const supabase = createClient();
+      const builder = supabase
+        .from("clients")
+        .select("id, full_name, email")
+        .eq("agency_id", agencyId)
+        .order("full_name", { ascending: true })
+        .limit(20);
+      const query = q
+        ? builder.or(`full_name.ilike.%${q}%,email.ilike.%${q}%,document_number.ilike.%${q}%`)
+        : builder;
+      const { data } = await query;
+      if (cancelled) return;
+      setPickerHits(
+        (data ?? []).map((c) => ({ id: c.id, fullName: c.full_name, email: c.email })),
+      );
+      setPickerLoading(false);
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [pickerOpen, pickerQuery, agencyId]);
+
+  async function pickClient(hit: ClientHit) {
+    setPickerOpen(false);
+    setPickerQuery("");
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("clients")
+      .select(
+        "id, full_name, email, phone, document_type, document_number, birth_date, document_expiry_date, nationality, city",
+      )
+      .eq("id", hit.id)
+      .maybeSingle();
+    const c: ClientFull | null = data
+      ? {
+          id: data.id,
+          fullName: data.full_name,
+          email: data.email,
+          phone: data.phone,
+          documentType: data.document_type,
+          documentNumber: data.document_number,
+          birthDate: data.birth_date,
+          documentExpiryDate: data.document_expiry_date,
+          nationality: data.nationality,
+          city: data.city,
+        }
+      : null;
+    if (!c) return;
     setFullName(c.fullName);
     setEmail(c.email ?? "");
     setPhone(c.phone ?? "");
@@ -313,19 +349,7 @@ function PassengerForm({
     setDocumentExpiryDate(c.documentExpiryDate ?? "");
     setNationality(c.nationality ?? "");
     setCity(c.city ?? "");
-    setPickerOpen(false);
-    setPickerQuery("");
   }
-
-  const lower = pickerQuery.toLowerCase();
-  const filteredClients = lower
-    ? clients.filter(
-        (c) =>
-          c.fullName.toLowerCase().includes(lower) ||
-          (c.documentNumber ?? "").toLowerCase().includes(lower) ||
-          (c.email ?? "").toLowerCase().includes(lower),
-      )
-    : clients;
 
   function submit() {
     setError(null);
@@ -356,7 +380,7 @@ function PassengerForm({
 
   return (
     <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50/40 p-3 dark:border-zinc-700 dark:bg-zinc-950/40">
-      {!initial && clients.length > 0 && (
+      {!initial && (
         <div ref={pickerRef} className="relative mb-3">
           <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-500">
             Cargar desde un cliente del CRM (opcional)
@@ -372,30 +396,26 @@ function PassengerForm({
             placeholder="Buscar por nombre, email o documento…"
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
-          {pickerOpen && filteredClients.length > 0 && (
+          {pickerOpen && (pickerLoading || pickerHits.length > 0) && (
             <div className="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-              <ul>
-                {filteredClients.slice(0, 12).map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => pickClient(c)}
-                      className="block w-full px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                    >
-                      <div className="font-medium">{c.fullName}</div>
-                      <div className="text-xs text-zinc-500">
-                        {[
-                          c.documentNumber && `${c.documentType ?? "Doc"}: ${c.documentNumber}`,
-                          c.email,
-                          c.nationality,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ") || "—"}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {pickerLoading && pickerHits.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-zinc-500">Buscando…</div>
+              ) : (
+                <ul>
+                  {pickerHits.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => pickClient(c)}
+                        className="block w-full px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      >
+                        <div className="font-medium">{c.fullName}</div>
+                        <div className="text-xs text-zinc-500">{c.email ?? "—"}</div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>

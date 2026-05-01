@@ -31,18 +31,26 @@ export default async function AgencyHome() {
 
   const supabase = await createClient();
 
+  // Stats agregados sobre todo el universo (status + created_at, payload mínimo).
+  // Recientes para mostrar van en query separada con campos completos.
+  const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
   const [
-    { data: requests },
+    { data: statsRows },
+    { data: recentRequests },
     { data: payments },
     { count: clientsCount },
     { data: bspUpcoming },
   ] = await Promise.all([
     supabase
       .from("quote_requests")
-      .select("id, code, status, client_name, destination, created_at, bsp_due_date")
+      .select("status, created_at")
+      .eq("agency_id", tenant.agencyId),
+    supabase
+      .from("quote_requests")
+      .select("id, code, status, client_name, destination, created_at")
       .eq("agency_id", tenant.agencyId)
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(6),
     supabase
       .from("payments")
       .select("amount, currency, receipt_uploaded_at, verified_at")
@@ -61,11 +69,13 @@ export default async function AgencyHome() {
       .limit(8),
   ]);
 
-  const reqList = requests ?? [];
-  const allRequests = reqList; // últimos 50 alcanza para conteos
+  const allStats = statsRows ?? [];
+  const recent = recentRequests ?? [];
+  const sinceCutoff = allStats.filter((r) => r.created_at >= sixMonthsAgo);
 
-  const statusCounts = countByStatus(allRequests);
+  const statusCounts = countByStatus(allStats);
   const activeCount = ACTIVE_STATUSES.reduce((acc, s) => acc + (statusCounts[s] ?? 0), 0);
+  const totalCount = allStats.length;
 
   const pendingTotals = emptyTotals();
   const verifiedTotals = emptyTotals();
@@ -77,7 +87,7 @@ export default async function AgencyHome() {
   }
 
   // Solicitudes por mes (últimos 6 meses)
-  const monthly = monthlyCounts(allRequests);
+  const monthly = monthlyCounts(sinceCutoff);
 
   return (
     <div className="space-y-6">
@@ -89,7 +99,7 @@ export default async function AgencyHome() {
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Solicitudes activas" value={String(activeCount)} hint={`Total visto: ${reqList.length}+`} />
+        <Stat label="Solicitudes activas" value={String(activeCount)} hint={`Total: ${totalCount}`} />
         <Stat label="A pagar a operadores" value={formatTotals(pendingTotals)} tone="warn" />
         <Stat label="Pagos verificados" value={formatTotals(verifiedTotals)} tone="ok" />
         <Stat label="Clientes" value={String(clientsCount ?? 0)} />
@@ -157,11 +167,11 @@ export default async function AgencyHome() {
             Ver todas →
           </Link>
         </div>
-        {reqList.length === 0 ? (
+        {recent.length === 0 ? (
           <p className="px-5 py-6 text-sm text-zinc-500">Sin solicitudes todavía.</p>
         ) : (
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {reqList.slice(0, 6).map((r) => (
+            {recent.map((r) => (
               <li key={r.id}>
                 <Link
                   href={`/agency/requests/${r.id}`}
