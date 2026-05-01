@@ -20,7 +20,7 @@ export default async function EditRequestPage({
   const { data: request } = await supabase
     .from("quote_requests")
     .select(
-      "id, code, status, client_name, client_email, client_phone, destination, departure_date, return_date, flexible_dates, pax_adults, pax_children, pax_infants, services, notes",
+      "id, code, status, client_id, client_name, client_email, client_phone, destination, departure_date, return_date, flexible_dates, pax_adults, pax_children, pax_infants, services, notes",
     )
     .eq("id", id)
     .eq("agency_id", tenant.agencyId)
@@ -69,9 +69,11 @@ export default async function EditRequestPage({
 
       <RequestForm
         mode="edit"
+        agencyId={tenant.agencyId}
         action={updateQuoteRequest}
         hiddenFields={{ request_id: id }}
         initial={{
+          client_id: request.client_id,
           client_name: request.client_name,
           client_email: request.client_email,
           client_phone: request.client_phone,

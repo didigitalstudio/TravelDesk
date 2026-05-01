@@ -6,18 +6,36 @@ import { createQuoteRequest } from "./actions";
 
 export const metadata = { title: "Nueva solicitud — Travel Desk" };
 
-export default async function NewRequestPage() {
+export default async function NewRequestPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ client_id?: string }>;
+}) {
   const tenant = await getCurrentTenant();
   if (tenant.kind !== "agency") return null;
 
+  const params = await searchParams;
+  const presetClientId = params.client_id ?? null;
+
   const supabase = await createClient();
-  const { data: links } = await supabase
-    .from("agency_operator_links")
-    .select("operator:operators!inner(id, name)")
-    .eq("agency_id", tenant.agencyId)
-    .order("created_at", { ascending: false });
+  const [{ data: links }, presetClient] = await Promise.all([
+    supabase
+      .from("agency_operator_links")
+      .select("operator:operators!inner(id, name)")
+      .eq("agency_id", tenant.agencyId)
+      .order("created_at", { ascending: false }),
+    presetClientId
+      ? supabase
+          .from("clients")
+          .select("id, full_name, email, phone")
+          .eq("id", presetClientId)
+          .eq("agency_id", tenant.agencyId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   const operators = (links ?? []).map((l) => l.operator);
+  const presetData = presetClient.data;
 
   return (
     <div className="space-y-6">
@@ -36,7 +54,31 @@ export default async function NewRequestPage() {
         </Link>
       </div>
 
-      <RequestForm mode="create" action={createQuoteRequest} operators={operators} />
+      <RequestForm
+        mode="create"
+        agencyId={tenant.agencyId}
+        action={createQuoteRequest}
+        operators={operators}
+        initial={
+          presetData
+            ? {
+                client_id: presetData.id,
+                client_name: presetData.full_name,
+                client_email: presetData.email,
+                client_phone: presetData.phone,
+                destination: "",
+                departure_date: null,
+                return_date: null,
+                flexible_dates: false,
+                pax_adults: 1,
+                pax_children: 0,
+                pax_infants: 0,
+                services: [],
+                notes: null,
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

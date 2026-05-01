@@ -25,6 +25,7 @@ export async function createQuoteRequest(
     return { status: "error", message: "Sólo una agencia puede crear solicitudes." };
   }
 
+  const clientId = String(formData.get("client_id") ?? "").trim() || undefined;
   const clientName = String(formData.get("client_name") ?? "").trim();
   const clientEmail = String(formData.get("client_email") ?? "").trim() || undefined;
   const clientPhone = String(formData.get("client_phone") ?? "").trim() || undefined;
@@ -49,6 +50,7 @@ export async function createQuoteRequest(
   const supabase = await createClient();
   const { data: requestId, error } = await supabase.rpc("create_quote_request", {
     p_agency_id: tenant.agencyId,
+    p_client_id: clientId,
     p_client_name: clientName,
     p_client_email: clientEmail,
     p_client_phone: clientPhone,

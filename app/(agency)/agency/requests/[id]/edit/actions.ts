@@ -29,6 +29,7 @@ export async function updateQuoteRequest(
     return { status: "error", message: "Sólo una agencia puede editar solicitudes." };
   }
 
+  const clientId = String(formData.get("client_id") ?? "").trim() || undefined;
   const clientName = String(formData.get("client_name") ?? "").trim();
   const clientEmail = String(formData.get("client_email") ?? "").trim() || undefined;
   const clientPhone = String(formData.get("client_phone") ?? "").trim() || undefined;
@@ -51,6 +52,7 @@ export async function updateQuoteRequest(
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_quote_request", {
     p_request_id: requestId,
+    p_client_id: clientId,
     p_client_name: clientName,
     p_client_email: clientEmail,
     p_client_phone: clientPhone,

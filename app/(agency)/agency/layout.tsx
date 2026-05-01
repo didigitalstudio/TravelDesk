@@ -29,6 +29,9 @@ export default async function AgencyLayout({ children }: { children: React.React
               <Link href="/agency/requests" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Solicitudes
               </Link>
+              <Link href="/agency/clients" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+                Clientes
+              </Link>
               <Link href="/agency/operators" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Operadores
               </Link>

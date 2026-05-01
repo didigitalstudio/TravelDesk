@@ -207,6 +207,62 @@ export type Database = {
         }
         Relationships: []
       }
+      clients: {
+        Row: {
+          address: string | null
+          agency_id: string
+          birth_date: string | null
+          created_at: string
+          created_by: string | null
+          document_number: string | null
+          document_type: string | null
+          email: string | null
+          full_name: string
+          id: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          agency_id: string
+          birth_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_number?: string | null
+          document_type?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          agency_id?: string
+          birth_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_number?: string | null
+          document_type?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -579,6 +635,7 @@ export type Database = {
           agency_id: string
           bsp_due_date: string | null
           client_email: string | null
+          client_id: string | null
           client_name: string
           client_phone: string | null
           code: string
@@ -602,6 +659,7 @@ export type Database = {
           agency_id: string
           bsp_due_date?: string | null
           client_email?: string | null
+          client_id?: string | null
           client_name: string
           client_phone?: string | null
           code: string
@@ -625,6 +683,7 @@ export type Database = {
           agency_id?: string
           bsp_due_date?: string | null
           client_email?: string | null
+          client_id?: string | null
           client_name?: string
           client_phone?: string | null
           code?: string
@@ -650,6 +709,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -813,6 +879,7 @@ export type Database = {
         Args: {
           p_agency_id: string
           p_client_email?: string
+          p_client_id?: string
           p_client_name: string
           p_client_phone?: string
           p_departure_date?: string
@@ -828,6 +895,7 @@ export type Database = {
         Returns: string
       }
       delete_attachment: { Args: { p_id: string }; Returns: string }
+      delete_client: { Args: { p_id: string }; Returns: undefined }
       delete_passenger: { Args: { p_id: string }; Returns: undefined }
       delete_quote_request: {
         Args: { p_request_id: string }
@@ -915,6 +983,7 @@ export type Database = {
       update_quote_request: {
         Args: {
           p_client_email?: string
+          p_client_id?: string
           p_client_name: string
           p_client_phone?: string
           p_departure_date?: string
@@ -929,6 +998,20 @@ export type Database = {
           p_services?: Database["public"]["Enums"]["service_type"][]
         }
         Returns: undefined
+      }
+      upsert_client: {
+        Args: {
+          p_address?: string
+          p_birth_date?: string
+          p_document_number?: string
+          p_document_type?: string
+          p_email?: string
+          p_full_name: string
+          p_id?: string
+          p_notes?: string
+          p_phone?: string
+        }
+        Returns: string
       }
       upsert_passenger: {
         Args: {

@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { SERVICE_LABELS, SERVICE_OPTIONS, type ServiceType } from "@/lib/requests";
+import { ClientPicker, type ClientPickerData } from "./client-picker";
 
 export type RequestFormState = { status: "idle" | "error"; message?: string };
 
 export type RequestFormInitial = {
+  client_id?: string | null;
   client_name: string;
   client_email: string | null;
   client_phone: string | null;
@@ -25,20 +27,44 @@ type Operator = { id: string; name: string };
 
 type Props = {
   mode: "create" | "edit";
+  agencyId: string;
   action: (prev: RequestFormState, formData: FormData) => Promise<RequestFormState>;
   initial?: RequestFormInitial;
-  operators?: Operator[]; // sólo en create
+  operators?: Operator[];
   hiddenFields?: Record<string, string>;
 };
 
 const initialState: RequestFormState = { status: "idle" };
 
-export function RequestForm({ mode, action, initial, operators, hiddenFields }: Props) {
+export function RequestForm({
+  mode,
+  agencyId,
+  action,
+  initial,
+  operators,
+  hiddenFields,
+}: Props) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const [flexible, setFlexible] = useState(initial?.flexible_dates ?? false);
   const [sendNow, setSendNow] = useState(mode === "create" && (operators?.length ?? 0) > 0);
 
+  const [clientId, setClientId] = useState<string | null>(initial?.client_id ?? null);
+  const [clientName, setClientName] = useState(initial?.client_name ?? "");
+  const [clientEmail, setClientEmail] = useState(initial?.client_email ?? "");
+  const [clientPhone, setClientPhone] = useState(initial?.client_phone ?? "");
+
   const isEdit = mode === "edit";
+
+  function handleClientPick(c: ClientPickerData | null) {
+    if (c) {
+      setClientId(c.id);
+      setClientName(c.fullName);
+      setClientEmail(c.email ?? "");
+      setClientPhone(c.phone ?? "");
+    } else {
+      setClientId(null);
+    }
+  }
 
   return (
     <form action={formAction} className="space-y-8">
@@ -46,13 +72,21 @@ export function RequestForm({ mode, action, initial, operators, hiddenFields }: 
         Object.entries(hiddenFields).map(([k, v]) => (
           <input key={k} type="hidden" name={k} value={v} />
         ))}
+      <input type="hidden" name="client_id" value={clientId ?? ""} />
       <Section title="Cliente final">
+        <ClientPicker
+          agencyId={agencyId}
+          initialClientId={initial?.client_id ?? null}
+          initialFullName={initial?.client_name}
+          onPick={handleClientPick}
+        />
         <Field id="client_name" label="Nombre del cliente" required>
           <input
             id="client_name"
             name="client_name"
             required
-            defaultValue={initial?.client_name ?? ""}
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
             placeholder="Juan Pérez"
             className={inputCls}
           />
@@ -63,7 +97,8 @@ export function RequestForm({ mode, action, initial, operators, hiddenFields }: 
               id="client_email"
               name="client_email"
               type="email"
-              defaultValue={initial?.client_email ?? ""}
+              value={clientEmail}
+              onChange={(e) => setClientEmail(e.target.value)}
               placeholder="cliente@email.com"
               className={inputCls}
             />
@@ -72,7 +107,8 @@ export function RequestForm({ mode, action, initial, operators, hiddenFields }: 
             <input
               id="client_phone"
               name="client_phone"
-              defaultValue={initial?.client_phone ?? ""}
+              value={clientPhone}
+              onChange={(e) => setClientPhone(e.target.value)}
               placeholder="+54 9 11 5555 5555"
               className={inputCls}
             />
