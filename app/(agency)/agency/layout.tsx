@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/agency/payments", label: "Pagos" },
   { href: "/agency/telegram", label: "Telegram" },
   { href: "/agency/integrations", label: "Integraciones" },
+  { href: "/agency/settings", label: "Configuración" },
 ];
 
 export default async function AgencyLayout({ children }: { children: React.ReactNode }) {

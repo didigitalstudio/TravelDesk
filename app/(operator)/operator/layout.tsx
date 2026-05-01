@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/operator/requests", label: "Solicitudes" },
   { href: "/operator/agencies", label: "Agencias" },
   { href: "/operator/payments", label: "Cobros" },
+  { href: "/operator/settings", label: "Configuración" },
 ];
 
 export default async function OperatorLayout({ children }: { children: React.ReactNode }) {

@@ -469,6 +469,8 @@ export type Database = {
       }
       operators: {
         Row: {
+          brand_color: string | null
+          brand_logo_url: string | null
           contact_email: string | null
           created_at: string
           id: string
@@ -477,6 +479,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_color?: string | null
+          brand_logo_url?: string | null
           contact_email?: string | null
           created_at?: string
           id?: string
@@ -485,6 +489,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_color?: string | null
+          brand_logo_url?: string | null
           contact_email?: string | null
           created_at?: string
           id?: string
@@ -1272,6 +1278,25 @@ export type Database = {
       unregister_payment_receipt: {
         Args: { p_request_id: string }
         Returns: string[]
+      }
+      update_agency_profile: {
+        Args: {
+          p_agency_id: string
+          p_brand_color?: string
+          p_brand_logo_url?: string
+          p_name?: string
+        }
+        Returns: undefined
+      }
+      update_operator_profile: {
+        Args: {
+          p_brand_color?: string
+          p_brand_logo_url?: string
+          p_contact_email?: string
+          p_name?: string
+          p_operator_id: string
+        }
+        Returns: undefined
       }
       update_quote_request: {
         Args: {
