@@ -51,9 +51,9 @@ export default async function AgencyTelegramPage() {
         <ul className="space-y-2 text-sm text-zinc-300">
           <li>
             <code className="rounded-md bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-indigo-200">
-              /cotizar Cliente ; Destino ; Notas
+              /cotizar
             </code>{" "}
-            — crea una solicitud en estado borrador.
+            — inicia el wizard paso a paso para armar una solicitud completa y despacharla a operadores.
           </li>
           <li>
             <code className="rounded-md bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-indigo-200">
@@ -63,24 +63,33 @@ export default async function AgencyTelegramPage() {
           </li>
           <li>
             <code className="rounded-md bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-indigo-200">
+              /cancelar
+            </code>{" "}
+            — cancela el flujo actual y vuelve al inicio.
+          </li>
+          <li>
+            <code className="rounded-md bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-indigo-200">
+              /config
+            </code>{" "}
+            — muestra las reglas del bot y datos del chat vinculado.
+          </li>
+          <li>
+            <code className="rounded-md bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-indigo-200">
               /vincular CODIGO
             </code>{" "}
-            — vincular el chat con tu cuenta (una vez).
+            — vincula el chat con tu cuenta (una sola vez).
           </li>
           <li>
             <code className="rounded-md bg-white/[0.04] px-1.5 py-0.5 font-mono text-xs text-indigo-200">
               /help
             </code>{" "}
-            — ayuda.
+            — ayuda y lista de comandos.
           </li>
         </ul>
-        <p className="mt-3 text-xs text-zinc-500">
-          La solicitud queda como borrador con el cliente y destino que indicaste.
-          Después la completás y la enviás a operadores desde{" "}
-          <Link href="/agency/requests" className="accent-link">
-            la web
-          </Link>
-          .
+        <p className="mt-4 text-xs text-zinc-500">
+          Las fechas se ingresan como <span className="font-mono">dd/mm/yyyy</span>. El wizard te guía
+          paso a paso y al final podés despachar la solicitud directo a los operadores vinculados,
+          sin necesidad de entrar a la web.
         </p>
       </section>
     </div>

@@ -986,6 +986,33 @@ export type Database = {
         }
         Relationships: []
       }
+      telegram_conversations: {
+        Row: {
+          chat_id: number
+          draft: Json
+          message_id: number | null
+          step: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chat_id: number
+          draft?: Json
+          message_id?: number | null
+          step?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chat_id?: number
+          draft?: Json
+          message_id?: number | null
+          step?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       telegram_link_codes: {
         Row: {
           code: string
@@ -1351,6 +1378,31 @@ export type Database = {
         }
         Returns: string
       }
+      telegram_conv_get: {
+        Args: { p_chat_id: number }
+        Returns: {
+          r_draft: Json
+          r_message_id: number
+          r_step: string
+        }[]
+      }
+      telegram_conv_reset: { Args: { p_chat_id: number }; Returns: undefined }
+      telegram_conv_set: {
+        Args: {
+          p_chat_id: number
+          p_draft: Json
+          p_message_id?: number
+          p_step: string
+        }
+        Returns: undefined
+      }
+      telegram_create_full_request: {
+        Args: { p_chat_id: number; p_payload: Json }
+        Returns: {
+          request_code: string
+          request_id: string
+        }[]
+      }
       telegram_create_request: {
         Args: {
           p_chat_id: number
@@ -1364,6 +1416,24 @@ export type Database = {
           request_id: string
         }[]
       }
+      telegram_dispatch_request: {
+        Args: {
+          p_chat_id: number
+          p_operator_ids: string[]
+          p_request_id: string
+        }
+        Returns: {
+          member_emails: string[]
+          operator_id: string
+        }[]
+      }
+      telegram_list_linked_operators: {
+        Args: { p_agency_id: string; p_chat_id: number }
+        Returns: {
+          operator_id: string
+          operator_name: string
+        }[]
+      }
       telegram_list_recent_requests: {
         Args: { p_chat_id: number; p_limit?: number }
         Returns: {
@@ -1373,6 +1443,13 @@ export type Database = {
           request_code: string
           request_id: string
           status: Database["public"]["Enums"]["request_status"]
+        }[]
+      }
+      telegram_user_agencies: {
+        Args: { p_chat_id: number }
+        Returns: {
+          agency_id: string
+          agency_name: string
         }[]
       }
       unregister_payment_receipt: {
