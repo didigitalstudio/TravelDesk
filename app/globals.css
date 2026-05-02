@@ -27,6 +27,18 @@
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
+
+  /* Landing — alias del sistema de diseño */
+  --text-1: #f5f5f7;
+  --text-2: #b8b8c2;
+  --text-3: #75757f;
+  --text-4: #4a4a52;
+  --border-1: rgba(255, 255, 255, 0.06);
+  --border-2: rgba(255, 255, 255, 0.10);
+  --border-3: rgba(255, 255, 255, 0.16);
+  --accent-bright: #a5b4fc;
+  --accent-deep: #6366f1;
+  --violet: #c084fc;
 }
 
 @theme inline {
@@ -57,6 +69,9 @@ body {
   font-family: var(--font-sans);
   font-feature-settings: "cv11", "ss01", "ss03";
 }
+
+/* Monospace helper usado por la landing */
+.mono { font-family: var(--font-mono), ui-monospace, monospace; }
 
 /* ---------- Component utilities ---------- */
 
