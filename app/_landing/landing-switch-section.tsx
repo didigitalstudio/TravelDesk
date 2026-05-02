@@ -85,7 +85,7 @@ export const LandingSwitchSection = () => {
 
   return (
     <section id="funcionalidades" style={{
-      maxWidth: 1240, margin: "0 auto", padding: "120px 32px", position: "relative",
+      maxWidth: 1240, margin: "0 auto", padding: "72px 32px", position: "relative",
     }}>
       <div aria-hidden style={{
         position: "absolute", inset: "40px 8% 0 8%", height: 540,

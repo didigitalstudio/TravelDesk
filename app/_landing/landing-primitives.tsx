@@ -206,7 +206,7 @@ export const SectionHeader = ({ eyebrow, title, sub, align = "left", maxWidth = 
   eyebrow?: string; title: string; sub?: string;
   align?: "left" | "center"; maxWidth?: number;
 }) => (
-  <div style={{ textAlign: align, maxWidth, marginInline: align === "center" ? "auto" : undefined, marginBottom: 48 }}>
+  <div style={{ textAlign: align, maxWidth, marginInline: align === "center" ? "auto" : undefined, marginBottom: 36 }}>
     {eyebrow && <div style={{ marginBottom: 14 }}><Eyebrow>{eyebrow}</Eyebrow></div>}
     <h2 style={{ fontSize: "clamp(28px, 4.2vw, 44px)", marginBottom: sub ? 16 : 0, textWrap: "balance" }}>
       {title}
@@ -222,7 +222,7 @@ export const Section = ({ children, id, style = {}, narrow = false }: {
 }) => (
   <section id={id} style={{
     maxWidth: narrow ? 980 : 1240, margin: "0 auto",
-    padding: "120px 32px", ...style,
+    padding: "72px 32px", ...style,
   }}>
     {children}
   </section>

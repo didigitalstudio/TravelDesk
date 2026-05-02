@@ -42,8 +42,8 @@ export const LandingFooter = () => {
         <div>
           <div className="mono" style={{ fontSize: 10.5, color: "var(--text-3)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>Legal</div>
           <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 8, fontSize: 13.5 }}>
-            <li><a href="#" style={footLink}>Términos</a></li>
-            <li><a href="#" style={footLink}>Privacidad</a></li>
+            <li><a href="/terms" style={footLink}>Términos</a></li>
+            <li><a href="/privacy" style={footLink}>Privacidad</a></li>
           </ul>
         </div>
       </div>

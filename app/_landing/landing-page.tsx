@@ -13,7 +13,7 @@ import { LandingFooter } from "./landing-footer";
 
 export default function LandingPage() {
   return (
-    <div style={{ minHeight: "100vh" }}>
+    <div className="td-landing" style={{ minHeight: "100vh" }}>
       <LandingNav />
       <main>
         <LandingHero />

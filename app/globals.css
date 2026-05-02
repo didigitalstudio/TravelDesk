@@ -73,6 +73,23 @@ body {
 /* Monospace helper usado por la landing */
 .mono { font-family: var(--font-mono), ui-monospace, monospace; }
 
+/* Tipografía de la landing — headings ajustados igual que el demo */
+.td-landing h1 {
+  font-weight: 600;
+  letter-spacing: -0.032em;
+  line-height: 1.06;
+}
+.td-landing h2 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+.td-landing h3 {
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.25;
+}
+
 /* ---------- Component utilities ---------- */
 
 .surface {

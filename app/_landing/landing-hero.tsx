@@ -4,7 +4,7 @@ import { DashboardMockup } from "./dashboard-mockup";
 
 export const LandingHero = () => (
   <section id="top" style={{
-    maxWidth: 1240, margin: "0 auto", padding: "160px 32px 80px",
+    maxWidth: 1240, margin: "0 auto", padding: "130px 32px 56px",
     position: "relative",
   }}>
     {/* Decorative route arc */}
