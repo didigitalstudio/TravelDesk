@@ -10,7 +10,7 @@ SaaS para agencias de viaje y operadores turísticos. Centraliza el ciclo comple
 - **DB / Auth / Storage:** Supabase (`@supabase/ssr` + `@supabase/supabase-js`)
 - **Hosting:** Vercel (auto-deploy desde `main`)
 - **Mail:** Resend (`notificaciones@didigitalstudio.com`) — `lib/mail/send.ts` y `lib/mail/templates.ts`. `sendMailSafe` nunca rompe el flow del action.
-- **Bot Telegram:** grammY como route handler en `/api/telegram/webhook`. Setup vía GET `/api/telegram/setup?secret=...`. Bot: [@traveld_bot](https://t.me/traveld_bot).
+- **Bot Telegram:** grammY como route handler en `/api/telegram/webhook`. Setup vía GET `/api/telegram/setup?secret=...`. Bot: [@traveld_bot](https://t.me/traveld_bot). Wizard conversacional multi-step con inline keyboards — estado por chat en DB (`telegram_conversations`), despacho a operadores con mail + notif idénticos al flujo web.
 - **PDF:** `@react-pdf/renderer` server-side, runtime `nodejs`. Ruta `/agency/requests/[id]/pdf`.
 - **Google Drive:** OAuth scope `drive.file`. Mirror manual via `lib/google/sync.ts` (desde el botón "Sincronizar a Drive" del expediente).
 
@@ -92,6 +92,11 @@ lib/
   tenant.ts                  # getCurrentTenant() — devuelve agency | operator | none
   supabase/
     client.ts, server.ts, middleware.ts
+  telegram/
+    bot.ts                   # Dispatcher principal: step machine, handlers, makeWebhookCallback()
+    conversation.ts          # getConversation / setConversation / resetConversation — wrappers sobre RPCs telegram_conv_*
+    wizard.ts                # Keyboards (pax, flex, services, operators, review), parseDateInput, formatReview
+    dispatch.ts              # sendDispatchEmails — llama requestDispatchedEmail + sendMailSafe
 
 middleware.ts                # updateSession — refresca cookies en cada request
                              # ⚠ Next 16 deprecó "middleware" → "proxy"; warning ignorado por ahora
@@ -123,6 +128,10 @@ supabase/
     20260501023554_telegram_integration.sql
     20260501023928_google_drive.sql
     20260501024341_notifications.sql
+    20260501232407_scope_relays_to_request.sql
+    20260501033642_review_tanda2_fixes.sql
+    20260502010000_telegram_conversations.sql
+    20260502010100_telegram_wizard_rpcs.sql
 
 types/supabase.ts            # Generado, no editar a mano
 
@@ -168,6 +177,7 @@ legacy/leo-cotizador.html    # HTML standalone original. Conservar hasta confirm
 ### Telegram
 - **`telegram_links`** (PK `user_id`): `chat_id`, `username`. RLS only-own. Lo que ata el chat con la cuenta.
 - **`telegram_link_codes`**: códigos de 6 chars con TTL de 15 min. Sin policies abiertas — todo via RPC.
+- **`telegram_conversations`** (PK `chat_id`): `user_id`, `step` (text, default 'idle'), `draft` (jsonb, acumula campos del wizard), `message_id` (para `editMessageReplyMarkup`), `updated_at`. TTL oportunístico de 30 min: `telegram_conv_get` resetea a idle si `updated_at < now() - interval '30 minutes'` y step ≠ 'idle'. RLS only-own.
 
 ### Google Drive
 - **`agency_google_drive_connections`** (PK `agency_id`): `refresh_token` (encrypted at rest por Postgres), `drive_folder_id`, `drive_folder_name`. Sólo admins de la agencia pueden ver/borrar.
@@ -227,7 +237,14 @@ Todas las tablas tienen RLS habilitado. Helpers `security definer` con `set sear
 - `mark_notification_read(id)` / `mark_all_notifications_read()` → only-own.
 - `generate_client_summary_token(request_id)` → idempotente, devuelve uuid. `revoke_client_summary_token(request_id)`.
 - `get_trip_summary(token)` → jsonb pública para `/trip/[token]` (granted to anon).
-- `generate_telegram_link_code()` (auth) → string de 6 chars con TTL 15min. `consume_telegram_link_code(code, chat_id, username)` (anon) → boolean. `telegram_create_request(chat_id, client_name, destination, notes)` (anon) → uuid+code+agency_id, valida que el chat esté linkeado. `telegram_list_recent_requests(chat_id, limit)`.
+- `generate_telegram_link_code()` (auth) → string de 6 chars con TTL 15min. `consume_telegram_link_code(code, chat_id, username)` (anon) → boolean. `telegram_list_recent_requests(chat_id, limit)`.
+- `telegram_conv_get(p_chat_id)` (anon) → `(r_step, r_draft, r_message_id)`. Crea fila idle si no existe; reset oportunístico si TTL 30min expirado.
+- `telegram_conv_set(p_chat_id, p_step, p_draft, p_message_id)` (anon) → void. Upsert atómico.
+- `telegram_conv_reset(p_chat_id)` (anon) → void. Vuelve a idle y limpia draft.
+- `telegram_user_agencies(p_chat_id)` (anon) → `table(agency_id, agency_name)`. Todas las agencias donde el user (vía telegram_links) es member.
+- `telegram_list_linked_operators(p_chat_id, p_agency_id)` (anon) → `table(operator_id, operator_name)`. Operadores en `agency_operator_links`. Valida membership del user.
+- `telegram_create_full_request(p_chat_id, p_payload jsonb)` (anon) → `(request_id, request_code)`. Equivalente a `create_quote_request` pero keyed por chat_id. Errores user-facing prefijados con `USER:`.
+- `telegram_dispatch_request(p_chat_id, p_request_id, p_operator_ids[])` (anon) → `table(operator_id uuid, member_emails text[])`. Despacha, inserta notificaciones inline (security definer con `set search_path = public, auth`), devuelve emails para que TS llame Resend. `telegram_create_request` legacy queda en DB pero ya no se llama.
 - `upsert_agency_drive_connection(agency_id, refresh_token, folder_id, folder_name)` → upsert OAuth refresh token. `set_agency_drive_folder(agency_id, folder_id, folder_name)`. `get_agency_drive_refresh_token(agency_id)` (only members). `register_drive_sync(attachment_id, drive_file_id, drive_file_url)`.
 
 ## Auth
@@ -298,8 +315,8 @@ Helpers `lib/mail/send.ts` (`sendMailSafe` que nunca rompe el flow), `lib/mail/t
 ### Iteración 13 — PDF presupuesto al cliente
 Instala `@react-pdf/renderer` (runtime `nodejs` obligatorio). Componente `lib/pdf/quote-pdf.tsx` con branding (color, logo) por agencia, ítems, subtotal/margen/total, validez, condiciones de pago. Route handler `/agency/requests/[id]/pdf?quote_id=X&margin=Y&margin_type=fixed|percent` devuelve `application/pdf` inline. Margen pasado por query string (no persistido, no visible al operador). UI: en cada `QuoteCard` hay un colapsable con input de margen + selector % / monto fijo y botón que abre el PDF en nueva pestaña.
 
-### Iteración 14 — Bot de Telegram (grammY)
-Bot [@traveld_bot](https://t.me/traveld_bot). Migración `telegram_integration`: tablas `telegram_links` (PK user_id), `telegram_link_codes`. RPCs security definer: `generate_telegram_link_code` (auth), `consume_telegram_link_code(code, chat_id, username)` (anon), `telegram_create_request(chat_id, client_name, destination, notes)` (anon, valida link + resuelve agencia + genera `TD-NNNN`), `telegram_list_recent_requests`. Route handler POST `/api/telegram/webhook` (runtime nodejs) con grammY en modo webhook. Setup en `/api/telegram/setup?secret=…`. Webhook secret: `TELEGRAM_WEBHOOK_SECRET` (cabezal `X-Telegram-Bot-Api-Secret-Token`). Página `/agency/telegram` para generar el code de vinculación y desvincular. Comandos: `/start`, `/help`, `/vincular CODE`, `/cotizar Cliente ; Destino ; Notas`, `/listar`. Toda la lógica usa el cliente anónimo de Supabase — sin service_role en producción.
+### Iteración 14 — Bot de Telegram: infraestructura base (grammY)
+Bot [@traveld_bot](https://t.me/traveld_bot). Migración `telegram_integration`: tablas `telegram_links` (PK user_id), `telegram_link_codes`. RPCs `generate_telegram_link_code` (auth), `consume_telegram_link_code` (anon), `telegram_list_recent_requests`. Route handler POST `/api/telegram/webhook` (runtime nodejs) con grammY en modo webhook. Setup en `/api/telegram/setup?secret=…` — hay que re-correr si cambia el dominio. Webhook secret: `TELEGRAM_WEBHOOK_SECRET`. Página `/agency/settings/telegram` para generar el code de vinculación y desvincular. Toda la lógica usa el cliente anónimo de Supabase. Ver Iteración 19 para el wizard.
 
 ### Iteración 15 — Resumen de viaje al cliente final
 Migración `client_summary` agrega `quote_requests.client_summary_token uuid` (unique parcial). RPCs `generate_client_summary_token` (idempotente), `revoke_client_summary_token`, `get_trip_summary(token)` (granted to anon, devuelve jsonb con request + agency branding + reservation + passengers). Página pública `/trip/[token]` con branding (color, logo) — itinerario, fechas, pasajeros, reserva, notas. Panel `ClientSummaryPanel` en el expediente: generar/revocar link, copiar, abrir, enviar por mail (template `clientTripSummaryEmail` vía Resend, recipient definible).
@@ -313,8 +330,25 @@ Migración `google_drive`. Tablas `agency_google_drive_connections` (PK agency_i
 ### Iteración 18 — Notificaciones in-app + dashboards
 Migración `notifications`. Tabla `notifications` (`user_id`, `kind`, `title`, `body`, `link`, `read_at`). RPCs `notify_agency_members` / `notify_operator_members` (security definer, validan que el caller esté relacionado con el tenant destino), `mark_notification_read`, `mark_all_notifications_read`. Hooks integrados en los mismos puntos que los mails (un mail + una notification). Componente `NotificationsBell` (campana con contador, dropdown con últimas 12, link a la entidad relacionada, "marcar todas leídas") montado en ambos layouts. Dashboards `/agency` y `/operator` rehechos: stats (activas, a pagar, verificados, clientes, tasa de aceptación), barra de últimos 6 meses, breakdown por status, próximos vencimientos BSP, últimas solicitudes.
 
+### Iteración 19 — Bot de Telegram: wizard conversacional + despacho
+Migraciones `20260502010000_telegram_conversations.sql` y `20260502010100_telegram_wizard_rpcs.sql`. Reescritura completa de `lib/telegram/bot.ts` (~650 líneas) como step machine. Módulos nuevos: `conversation.ts` (wrappers RPCs conv), `wizard.ts` (keyboards inline, parsers, formatters), `dispatch.ts` (mail post-despacho).
+
+**State machine:** `idle → (agency_pick si >1 agencia) → client_name → pax_adults → pax_children → pax_infants → destination → flex_choice → [departure_date → return_date] → services → notes → review → dispatch_choice → operator_select → done`.
+
+**Inline keyboards:** pax (botones 1-6/0-4), flex (exactas/flexible), services (multi-select con toggle), review (confirmar/editar/cancelar), dispatch (ahora/borrador), operators (multi-select + despachar).
+
+**Callbacks prefix routing:** `wiz:`, `ag:`, `pax:`, `flex:`, `srv:`, `rev:`, `disp:`, `op:`.
+
+**Comandos:** `/start`, `/help`, `/config` (nuevo), `/cancelar` (nuevo), `/vincular`, `/listar`, `/cotizar` (inicia wizard; si hay flow activo ofrece reanudar).
+
+**Despacho:** `telegram_dispatch_request` hace cambio de status + dispatches + notificaciones inline. TS llama `sendDispatchEmails` (Resend) con best-effort `.catch()`.
+
+**Multi-agencia:** si user es member de >1 agencia, step `agency_pick` al inicio. Mono-agencia: skip automático. Sin agencias: mensaje de error con link a la app.
+
+**Errores:** los que empiezan con `USER:` en las RPCs se muestran al usuario (sin el prefijo). Los demás van a `console.error` y muestran mensaje genérico.
+
 ## Estado: iteraciones pendientes
-Ninguna mayor. Roadmap futuro abierto: integración con Resend webhooks (delivered/bounced), email templating con `react-email`, multi-payment (anticipo + saldo), Drive auto-mirror on upload (en lugar de manual), conversation state real para Telegram (multi-step), notificaciones push web (FCM).
+Ninguna mayor. Roadmap futuro abierto: integración con Resend webhooks (delivered/bounced), email templating con `react-email`, multi-payment (anticipo + saldo), Drive auto-mirror on upload (en lugar de manual), notificaciones push web (FCM).
 
 ## Decisiones arquitectónicas tomadas
 
@@ -327,6 +361,8 @@ Ninguna mayor. Roadmap futuro abierto: integración con Resend webhooks (deliver
 - **Telegram sin service_role:** todas las RPCs callable desde el webhook son `security definer` y validan `chat_id` linkeado. Mantiene la deploy sin necesitar la key sensible (la que se agregó a Vercel production como respaldo se puede borrar si no se usa para nada más).
 - **PDF con margen no persistido:** el margen va por query string (`?margin=X&margin_type=fixed|percent`), no se guarda en DB. El operador nunca lo ve porque no tiene acceso al endpoint `/agency/...`.
 - **Tabla única `attachments`**: un kind enum (`passenger_doc | reservation | voucher | invoice | file_doc | payment_receipt`) con FK a `quote_request_id`. Decisión: no abrir tabla por tipo. Los `payment_receipt` los sube la agencia (con `operator_id null`).
+- **Telegram wizard sin service_role ni auth.uid():** `telegram_dispatch_request` es `security definer` con `set search_path = public, auth` — accede a `auth.users` directamente para lookup de emails y hace INSERTs en `notifications` sin necesitar `notify_operator_members` (que exige `auth.uid()`). Decisión: replicar la lógica de inserción de notificaciones inline en lugar de depender de la RPC autenticada.
+- **Errores USER: en RPCs Telegram:** los errores de validación user-facing en las RPCs wizard se prefijan con `USER:`. El handler TS hace `strip('USER:')` y muestra el mensaje. Los errores internos van a `console.error` con mensaje genérico. Permite distinguir "input inválido del usuario" de "bug del sistema" sin exponer stack traces.
 
 ## Cosas a tener cuidado
 
