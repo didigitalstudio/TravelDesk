@@ -7,7 +7,6 @@ import { PortalSidebar } from "@/components/portal-sidebar";
 const NAV_ITEMS = [
   { href: "/operator", label: "Inicio" },
   { href: "/operator/requests", label: "Solicitudes" },
-  { href: "/operator/agencies", label: "Agencias" },
   { href: "/operator/payments", label: "Cobros" },
   { href: "/operator/settings", label: "Configuración" },
 ];

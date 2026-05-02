@@ -29,6 +29,6 @@ export async function acceptByToken(
   const result = data as { kind?: string } | null;
   if (result?.kind === "agency_member") redirect("/agency");
   if (result?.kind === "operator_member") redirect("/operator");
-  if (result?.kind === "operator_link") redirect("/operator/agencies");
+  if (result?.kind === "operator_link") redirect("/operator/settings/agencies");
   redirect("/");
 }

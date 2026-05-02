@@ -97,7 +97,7 @@ export default async function OperatorHome() {
 
       {pendingCount > 0 && (
         <Link
-          href="/operator/agencies"
+          href="/operator/settings/agencies"
           className="surface block border-amber-500/30 bg-amber-500/[0.06] p-4 text-sm transition-colors hover:bg-amber-500/[0.1]"
         >
           <strong className="text-amber-200">

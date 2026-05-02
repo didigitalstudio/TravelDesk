@@ -10,7 +10,7 @@ export async function acceptInvitationAction(token: string): Promise<{
   const supabase = await createClient();
   const { error } = await supabase.rpc("accept_invitation", { p_token: token });
   if (error) return { ok: false, message: error.message };
-  revalidatePath("/operator/agencies");
+  revalidatePath("/operator/settings/agencies");
   revalidatePath("/operator");
   return { ok: true };
 }

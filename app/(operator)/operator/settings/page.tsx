@@ -32,14 +32,6 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Configuración</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-50">Tu cuenta</h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          Ajustá los datos de tu operador y de tu acceso personal.
-        </p>
-      </div>
-
       {!isAdmin && (
         <div className="surface border-amber-500/30 bg-amber-500/[0.06] p-4 text-sm text-amber-100">
           Sólo los admins del operador pueden editar el perfil. Vos podés

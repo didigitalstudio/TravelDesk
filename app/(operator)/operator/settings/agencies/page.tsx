@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { AcceptButton } from "./accept-button";
@@ -27,36 +26,28 @@ export default async function AgenciesPage() {
   const linkInvitations = (pending ?? []).filter((i) => i.kind === "operator_link");
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Mis agencias</h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Agencias vinculadas que pueden enviarte solicitudes de cotización.
-          </p>
-        </div>
-        <Link
-          href="/operator"
-          className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-        >
-          ← Volver
-        </Link>
-      </div>
-
+    <div className="space-y-6">
       {linkInvitations.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold">Invitaciones recibidas</h2>
+        <section className="surface p-6">
+          <header className="mb-4">
+            <h2 className="text-base font-semibold text-zinc-100">
+              Invitaciones recibidas
+            </h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              Aceptá una para que la agencia pueda enviarte solicitudes.
+            </p>
+          </header>
           <ul className="space-y-2">
             {linkInvitations.map((inv) => (
               <li
                 key={inv.id}
-                className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/30 sm:flex-row sm:items-center sm:justify-between"
+                className="surface-flat flex flex-col gap-3 border-amber-500/20 bg-amber-500/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
-                  <div className="text-sm font-medium">
+                  <div className="text-sm font-medium text-amber-100">
                     {inv.agency_name ?? "Agencia"} te invita a vincularte
                   </div>
-                  <div className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                  <div className="mt-0.5 text-xs text-zinc-400">
                     Invitación a {inv.email} · expira{" "}
                     {new Date(inv.expires_at).toLocaleDateString("es-AR")}
                   </div>
@@ -68,19 +59,26 @@ export default async function AgenciesPage() {
         </section>
       )}
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold">Agencias vinculadas</h2>
+      <section className="surface p-6">
+        <h3 className="mb-3 text-sm font-semibold text-zinc-100">
+          Agencias vinculadas
+        </h3>
         {(!links || links.length === 0) ? (
           <p className="text-sm text-zinc-500">
-            Aún no tenés agencias vinculadas. Cuando una agencia te invite, vas a verlo
-            acá arriba.
+            Aún no tenés agencias vinculadas. Cuando una agencia te invite, vas a
+            verlo arriba.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <ul className="divide-y divide-white/[0.05]">
             {links.map((l) => (
-              <li key={l.agency.id} className="flex items-center justify-between gap-4 p-4">
+              <li
+                key={l.agency.id}
+                className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+              >
                 <div>
-                  <div className="text-sm font-medium">{l.agency.name}</div>
+                  <div className="text-sm font-medium text-zinc-100">
+                    {l.agency.name}
+                  </div>
                   <div className="mt-0.5 text-xs text-zinc-500">
                     Vinculada desde {new Date(l.created_at).toLocaleDateString("es-AR")}
                   </div>

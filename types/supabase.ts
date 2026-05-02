@@ -1279,6 +1279,49 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      search_operator_payments: {
+        Args: {
+          p_due_from?: string
+          p_due_to?: string
+          p_operator_id: string
+          p_query?: string
+          p_stage?: string
+        }
+        Returns: {
+          agency_id: string
+          agency_name: string
+          amount: number
+          client_name: string
+          currency: Database["public"]["Enums"]["currency"]
+          due_date: string
+          payment_id: string
+          receipt_uploaded_at: string
+          request_code: string
+          request_id: string
+          request_status: Database["public"]["Enums"]["request_status"]
+          verified_at: string
+        }[]
+      }
+      search_operator_requests: {
+        Args: { p_operator_id: string; p_query?: string; p_status?: string }
+        Returns: {
+          agency_id: string
+          agency_name: string
+          bsp_due_date: string
+          client_name: string
+          code: string
+          departure_date: string
+          destination: string
+          flexible_dates: boolean
+          pax_adults: number
+          pax_children: number
+          pax_infants: number
+          request_id: string
+          return_date: string
+          sent_at: string
+          status: Database["public"]["Enums"]["request_status"]
+        }[]
+      }
       send_quote_request: {
         Args: { p_operator_ids: string[]; p_request_id: string }
         Returns: undefined
