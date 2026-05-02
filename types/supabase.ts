@@ -1222,6 +1222,63 @@ export type Database = {
         Args: { p_invitation_id: string }
         Returns: undefined
       }
+      search_agency_payments: {
+        Args: {
+          p_agency_id: string
+          p_due_from?: string
+          p_due_to?: string
+          p_query?: string
+          p_stage?: string
+        }
+        Returns: {
+          amount: number
+          client_name: string
+          currency: Database["public"]["Enums"]["currency"]
+          due_date: string
+          operator_id: string
+          operator_name: string
+          payment_id: string
+          receipt_uploaded_at: string
+          request_code: string
+          request_id: string
+          request_status: Database["public"]["Enums"]["request_status"]
+          verified_at: string
+        }[]
+      }
+      search_agency_requests: {
+        Args: { p_agency_id: string; p_query?: string; p_status?: string }
+        Returns: {
+          agency_id: string
+          bsp_due_date: string | null
+          client_email: string | null
+          client_id: string | null
+          client_name: string
+          client_phone: string | null
+          client_summary_token: string | null
+          code: string
+          created_at: string
+          created_by: string | null
+          departure_date: string | null
+          destination: string
+          flexible_dates: boolean
+          id: string
+          issued_at: string | null
+          notes: string | null
+          pax_adults: number
+          pax_children: number
+          pax_infants: number
+          return_date: string | null
+          services: Database["public"]["Enums"]["service_type"][]
+          status: Database["public"]["Enums"]["request_status"]
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "quote_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       send_quote_request: {
         Args: { p_operator_ids: string[]; p_request_id: string }
         Returns: undefined

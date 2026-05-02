@@ -267,7 +267,7 @@ export function RequestForm({
                 borrador y la podés enviar después.
               </p>
               <Link
-                href="/agency/operators"
+                href="/agency/settings/operators"
                 className="mt-2 inline-block text-xs font-medium underline"
               >
                 Ir a vincular operadores →

@@ -380,7 +380,7 @@ export default async function RequestDetailPage({
           linkedOperators.length === 0 && (
             <p className="text-xs text-zinc-500">
               Vinculá operadores en{" "}
-              <Link href="/agency/operators" className="underline">
+              <Link href="/agency/settings/operators" className="underline">
                 Operadores
               </Link>{" "}
               para poder enviar.

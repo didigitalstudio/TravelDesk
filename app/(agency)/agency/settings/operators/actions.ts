@@ -53,14 +53,14 @@ export async function inviteOperatorByEmail(
   });
   await sendMailSafe({ to: email, subject: tpl.subject, html: tpl.html });
 
-  revalidatePath("/agency/operators");
+  revalidatePath("/agency/settings/operators");
   return { status: "ok", token: data.token, email };
 }
 
 export async function revokeInvitationAction(invitationId: string): Promise<void> {
   const supabase = await createClient();
   await supabase.rpc("revoke_invitation", { p_invitation_id: invitationId });
-  revalidatePath("/agency/operators");
+  revalidatePath("/agency/settings/operators");
 }
 
 export async function unlinkOperatorAction(operatorId: string): Promise<void> {
@@ -73,5 +73,5 @@ export async function unlinkOperatorAction(operatorId: string): Promise<void> {
     .delete()
     .eq("agency_id", tenant.agencyId)
     .eq("operator_id", operatorId);
-  revalidatePath("/agency/operators");
+  revalidatePath("/agency/settings/operators");
 }

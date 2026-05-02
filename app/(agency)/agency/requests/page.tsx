@@ -3,64 +3,93 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { StatusBadge } from "@/components/status-badge";
 import { BspBadge } from "@/components/bsp-badge";
-import { formatDateRange, totalPax } from "@/lib/requests";
+import { SearchFilters } from "@/components/search-filters";
+import {
+  STATUS_LABELS,
+  formatDateRange,
+  totalPax,
+  type RequestStatus,
+} from "@/lib/requests";
 
 export const metadata = { title: "Solicitudes — Travel Desk" };
 
-export default async function RequestsListPage() {
+const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as RequestStatus[]).map((s) => ({
+  value: s,
+  label: STATUS_LABELS[s],
+}));
+
+export default async function RequestsListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string }>;
+}) {
   const tenant = await getCurrentTenant();
   if (tenant.kind !== "agency") return null;
 
+  const params = await searchParams;
+  const q = params.q?.trim() ?? "";
+  const status = params.status?.trim() ?? "";
+
   const supabase = await createClient();
-  const { data: requests } = await supabase
-    .from("quote_requests")
-    .select(
-      "id, code, status, client_name, destination, departure_date, return_date, flexible_dates, pax_adults, pax_children, pax_infants, created_at, bsp_due_date",
-    )
-    .eq("agency_id", tenant.agencyId)
-    .order("created_at", { ascending: false });
+  const { data: requests } = await supabase.rpc("search_agency_requests", {
+    p_agency_id: tenant.agencyId,
+    p_query: q || undefined,
+    p_status: status || undefined,
+  });
+
+  const list = requests ?? [];
+  const filtered = q.length > 0 || status.length > 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Solicitudes</h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Agencia</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-50">
+            Solicitudes
+          </h1>
+          <p className="mt-1 text-sm text-zinc-400">
             Pedidos de cotización cargados por tu agencia.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/agency"
-            className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-          >
-            ← Volver
-          </Link>
-          <Link
-            href="/agency/requests/new"
-            className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-          >
-            + Nueva solicitud
-          </Link>
-        </div>
+        <Link href="/agency/requests/new" className="btn-primary">
+          + Nueva solicitud
+        </Link>
       </div>
 
-      {!requests || requests.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Todavía no cargaste ninguna solicitud.
+      <SearchFilters
+        fields={[
+          {
+            kind: "text",
+            name: "q",
+            placeholder: "Buscar por código, cliente, destino, operador o pasajero…",
+          },
+          {
+            kind: "select",
+            name: "status",
+            options: STATUS_OPTIONS,
+            placeholder: "Todos los estados",
+          },
+        ]}
+      />
+
+      {list.length === 0 ? (
+        <div className="surface flex flex-col items-center gap-3 p-10 text-center">
+          <p className="text-sm text-zinc-400">
+            {filtered
+              ? "No se encontraron solicitudes con esos filtros."
+              : "Todavía no cargaste ninguna solicitud."}
           </p>
-          <Link
-            href="/agency/requests/new"
-            className="mt-4 inline-block rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
-          >
-            Crear la primera
-          </Link>
+          {!filtered && (
+            <Link href="/agency/requests/new" className="btn-primary">
+              Crear la primera
+            </Link>
+          )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="surface overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950">
+            <thead className="border-b border-white/[0.06] bg-white/[0.02] text-[11px] uppercase tracking-wider text-zinc-500">
               <tr>
                 <th className="px-4 py-2 text-left">Código</th>
                 <th className="px-4 py-2 text-left">Cliente</th>
@@ -71,26 +100,26 @@ export default async function RequestsListPage() {
                 <th className="px-4 py-2 text-right">Creada</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {requests.map((r) => (
+            <tbody className="divide-y divide-white/[0.05]">
+              {list.map((r) => (
                 <tr
                   key={r.id}
-                  className="hover:bg-zinc-50 dark:hover:bg-zinc-950/60"
+                  className="transition-colors hover:bg-white/[0.03]"
                 >
                   <td className="px-4 py-3 font-mono text-xs">
                     <Link
                       href={`/agency/requests/${r.id}`}
-                      className="font-semibold underline-offset-2 hover:underline"
+                      className="font-semibold text-zinc-100 underline-offset-4 hover:text-[color:var(--accent-strong)] hover:underline"
                     >
                       {r.code}
                     </Link>
                   </td>
-                  <td className="px-4 py-3">{r.client_name}</td>
-                  <td className="px-4 py-3">{r.destination}</td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
+                  <td className="px-4 py-3 text-zinc-200">{r.client_name}</td>
+                  <td className="px-4 py-3 text-zinc-300">{r.destination}</td>
+                  <td className="px-4 py-3 text-zinc-400">
                     {formatDateRange(r.departure_date, r.return_date, r.flexible_dates)}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
+                  <td className="px-4 py-3 text-zinc-400">
                     {totalPax(r.pax_adults, r.pax_children, r.pax_infants)}
                   </td>
                   <td className="px-4 py-3">

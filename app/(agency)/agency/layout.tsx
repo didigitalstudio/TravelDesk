@@ -8,7 +8,6 @@ const NAV_ITEMS = [
   { href: "/agency", label: "Inicio" },
   { href: "/agency/requests", label: "Solicitudes" },
   { href: "/agency/clients", label: "Clientes" },
-  { href: "/agency/operators", label: "Operadores" },
   { href: "/agency/payments", label: "Pagos" },
   { href: "/agency/settings", label: "Configuración" },
 ];
