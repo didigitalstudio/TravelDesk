@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
+import { getTenantFeatures } from "@/lib/subscriptions";
 import { buildInviteUrl } from "@/lib/invite";
 import { CopyButton } from "@/components/copy-button";
+import { FeatureGate } from "@/components/feature-gate";
 import { InviteForm } from "./invite-form";
 import { RevokeButton, UnlinkButton } from "./row-actions";
 
@@ -13,7 +15,7 @@ export default async function OperatorsPage() {
 
   const supabase = await createClient();
 
-  const [{ data: links }, { data: invitations }] = await Promise.all([
+  const [{ data: links }, { data: invitations }, features] = await Promise.all([
     supabase
       .from("agency_operator_links")
       .select("created_at, operator:operators!inner(id, name, slug, contact_email)")
@@ -26,6 +28,7 @@ export default async function OperatorsPage() {
       .eq("kind", "operator_link")
       .in("status", ["pending"])
       .order("created_at", { ascending: false }),
+    getTenantFeatures(),
   ]);
 
   const inviteLinks = await Promise.all(
@@ -37,16 +40,21 @@ export default async function OperatorsPage() {
 
   return (
     <div className="space-y-6">
-      <section className="surface p-6">
-        <header className="mb-4">
-          <h2 className="text-base font-semibold text-zinc-100">Invitar operador</h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            Mandale el link a tu operador para que se vincule y puedas enviarle
-            solicitudes.
-          </p>
-        </header>
-        <InviteForm />
-      </section>
+      <FeatureGate
+        enabled={features.multi_user ?? false}
+        message="Invitá operadores a tu equipo — disponible en plan Pro"
+      >
+        <section className="surface p-6">
+          <header className="mb-4">
+            <h2 className="text-base font-semibold text-zinc-100">Invitar operador</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              Mandale el link a tu operador para que se vincule y puedas enviarle
+              solicitudes.
+            </p>
+          </header>
+          <InviteForm />
+        </section>
+      </FeatureGate>
 
       <section className="surface p-6">
         <h3 className="mb-3 text-sm font-semibold text-zinc-100">

@@ -1,10 +1,15 @@
+import { getTenantFeatures } from "@/lib/subscriptions";
 import { SettingsTabs } from "./_components/settings-tabs";
 
-export default function AgencySettingsLayout({
+export const dynamic = "force-dynamic";
+
+export default async function AgencySettingsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const features = await getTenantFeatures();
+
   return (
     <div className="space-y-6">
       <div>
@@ -18,7 +23,7 @@ export default function AgencySettingsLayout({
           Ajustá los datos de tu agencia, integraciones y acceso personal.
         </p>
       </div>
-      <SettingsTabs />
+      <SettingsTabs features={features} />
       {children}
     </div>
   );

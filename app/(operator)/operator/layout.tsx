@@ -4,6 +4,8 @@ import { getCurrentTenant } from "@/lib/tenant";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { PortalSidebar } from "@/components/portal-sidebar";
 
+export const dynamic = "force-dynamic";
+
 const NAV_ITEMS = [
   { href: "/operator", label: "Inicio" },
   { href: "/operator/requests", label: "Solicitudes" },

@@ -3,8 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ProModal } from "./pro-modal";
 
-export type PortalNavItem = { href: string; label: string };
+export type PortalNavItem = {
+  href: string;
+  label: string;
+  proLocked?: boolean;
+};
 
 export function PortalSidebar({
   brandHref,
@@ -25,6 +30,7 @@ export function PortalSidebar({
 }) {
   const pathname = usePathname() ?? "";
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [proModal, setProModal] = useState<string | null>(null);
 
   // Cerrar drawer al cambiar de ruta.
   useEffect(() => {
@@ -69,6 +75,23 @@ export function PortalSidebar({
               item.href === brandHref
                 ? pathname === item.href
                 : pathname.startsWith(item.href);
+
+            if (item.proLocked) {
+              return (
+                <li key={item.href}>
+                  <button
+                    onClick={() => { setMobileOpen(false); setProModal(item.label); }}
+                    className="relative flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-left text-zinc-600 hover:bg-white/[0.03] hover:text-zinc-400 transition-colors"
+                  >
+                    {item.label}
+                    <span className="ml-auto text-[8px] font-bold uppercase tracking-widest text-violet-400 border border-violet-500/40 rounded px-1.5 py-0.5 bg-violet-500/10">
+                      Pro
+                    </span>
+                  </button>
+                </li>
+              );
+            }
+
             return (
               <li key={item.href}>
                 <Link
@@ -101,6 +124,7 @@ export function PortalSidebar({
         </div>
         {footerSlot}
       </div>
+      {proModal && <ProModal feature={proModal} onClose={() => setProModal(null)} />}
     </>
   );
 
