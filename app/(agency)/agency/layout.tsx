@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { PortalSidebar } from "@/components/portal-sidebar";
+import { AccountBlocked } from "@/components/account-blocked";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,27 @@ export default async function AgencyLayout({ children }: { children: React.React
   const tenant = await getCurrentTenant();
   if (tenant.kind === "none") redirect("/onboarding");
   if (tenant.kind === "operator") redirect("/operator");
+
+  // Gate: aprobado=false o estado=paused
+  if (tenant.kind === "agency") {
+    const { data: agencyData } = await supabase
+      .from("agencies")
+      .select("aprobado")
+      .eq("id", tenant.agencyId)
+      .single();
+    if (agencyData && agencyData.aprobado === false) {
+      return <AccountBlocked variant="pending" />;
+    }
+    const { data: subData } = await supabase
+      .from("tenant_subscriptions")
+      .select("estado")
+      .eq("tenant_id", tenant.agencyId)
+      .eq("tenant_type", "agency")
+      .maybeSingle();
+    if ((subData as { estado?: string } | null)?.estado === "paused") {
+      return <AccountBlocked variant="paused" />;
+    }
+  }
 
   const { data: notifs } = await supabase
     .from("notifications")

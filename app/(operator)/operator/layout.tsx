@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { PortalSidebar } from "@/components/portal-sidebar";
+import { AccountBlocked } from "@/components/account-blocked";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,26 @@ export default async function OperatorLayout({ children }: { children: React.Rea
   const tenant = await getCurrentTenant();
   if (tenant.kind === "none") redirect("/onboarding");
   if (tenant.kind === "agency") redirect("/agency");
+
+  if (tenant.kind === "operator") {
+    const { data: operatorData } = await supabase
+      .from("operators")
+      .select("aprobado")
+      .eq("id", tenant.operatorId)
+      .single();
+    if (operatorData && operatorData.aprobado === false) {
+      return <AccountBlocked variant="pending" />;
+    }
+    const { data: subData } = await supabase
+      .from("tenant_subscriptions")
+      .select("estado")
+      .eq("tenant_id", tenant.operatorId)
+      .eq("tenant_type", "operator")
+      .maybeSingle();
+    if ((subData as { estado?: string } | null)?.estado === "paused") {
+      return <AccountBlocked variant="paused" />;
+    }
+  }
 
   const { data: notifs } = await supabase
     .from("notifications")
