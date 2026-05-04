@@ -40,12 +40,12 @@ export const LandingHero = () => (
         </div>
 
         <h1 style={{ fontSize: "clamp(40px, 6.5vw, 76px)", marginBottom: 24, textWrap: "balance" }}>
-          La plataforma que tu agencia
+          La plataforma que las agencias
           <br/>
           <span style={{
             backgroundImage: "linear-gradient(95deg, #a5b4fc 0%, #c084fc 60%, #a5b4fc 100%)",
             WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
-          }}>y tus operadores comparten.</span>
+          }}>y los operadores comparten.</span>
         </h1>
 
         <p style={{
